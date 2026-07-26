@@ -1,7 +1,6 @@
 // Splash 启动页 - 竹芽人物动画版
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_theme.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -151,7 +150,7 @@ class _SplashPageState extends State<SplashPage>
                                 borderRadius: BorderRadius.circular(40),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF4CAF50).withOpacity(0.3),
+                                    color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
                                     blurRadius: 30,
                                     offset: const Offset(0, 15),
                                   ),
@@ -178,7 +177,7 @@ class _SplashPageState extends State<SplashPage>
                               letterSpacing: 12,
                               shadows: [
                                 Shadow(
-                                  color: const Color(0xFF4CAF50).withOpacity(0.3),
+                                  color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
                                   blurRadius: 20,
                                 ),
                               ],
@@ -242,7 +241,7 @@ class LeafPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF4CAF50).withOpacity(0.15)
+      ..color = const Color(0xFF4CAF50).withValues(alpha: 0.15)
       ..style = PaintingStyle.fill;
 
     // 画几片飘落的竹叶

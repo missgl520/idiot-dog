@@ -1,12 +1,21 @@
-// 消息模型
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 消息数据模型
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// 对话消息的数据结构
+/// - id         : 唯一标识（时间戳毫秒数）
+/// - role       : 'user' | 'assistant'
+/// - content    : 消息正文
+/// - timestamp  : 创建时间（用于排序）
+/// - isStreaming: AI 正在输出中（控制打字光标显示）
 class Message {
   final String id;
-  final String role; // 'user' | 'assistant'
+  final String role;
   final String content;
   final DateTime timestamp;
-  final bool isStreaming; // 是否正在流式输出
+  final bool isStreaming;
 
-  Message({
+  const Message({
     required this.id,
     required this.role,
     required this.content,
@@ -14,6 +23,7 @@ class Message {
     this.isStreaming = false,
   });
 
+  /// 复制一个修改后的实例（不可变对象的惯用写法）
   Message copyWith({
     String? id,
     String? role,
@@ -30,6 +40,7 @@ class Message {
     );
   }
 
+  /// 序列化为 JSON（存入 Hive）
   Map<String, dynamic> toJson() => {
         'id': id,
         'role': role,
@@ -37,10 +48,11 @@ class Message {
         'timestamp': timestamp.toIso8601String(),
       };
 
+  /// 从 JSON 反序列化（从 Hive 读取）
   factory Message.fromJson(Map<String, dynamic> json) => Message(
-        id: json['id'],
-        role: json['role'],
-        content: json['content'],
-        timestamp: DateTime.parse(json['timestamp']),
+        id: json['id'] as String,
+        role: json['role'] as String,
+        content: json['content'] as String,
+        timestamp: DateTime.parse(json['timestamp'] as String),
       );
 }

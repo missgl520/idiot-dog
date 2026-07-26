@@ -1,67 +1,137 @@
-// 竹芽主题
+// 竹芽专属主题 - 安静、纸质感
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // 亮色主题 - 温暖绿色调
-  static ThemeData get lightTheme => ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.light,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF4CAF50), // 竹绿
-      brightness: Brightness.light,
-    ),
-    scaffoldBackgroundColor: const Color(0xFFF5F5DC), // 米色背景
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      centerTitle: true,
-    ),
-    cardTheme: CardTheme(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(24),
-        borderSide: BorderSide.none,
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-    ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: Color(0xFF4CAF50),
-      foregroundColor: Colors.white,
-    ),
-  );
+  // 竹芽专属色
+  static const Color bamboo = Color(0xFF6B9E78);       // 竹绿 - 主色
+  static const Color bambooLight = Color(0xFFA8C5AB);  // 浅竹绿
+  static const Color bambooDark = Color(0xFF4A7055);   // 深竹绿
+  static const Color paper = Color(0xFFFAF8F5);        // 宣纸白 - 主背景
+  static const Color paperDark = Color(0xFF1A1A1A);    // 深色背景
+  static const Color ink = Color(0xFF2C2C2C);          // 墨色 - 正文
+  static const Color inkLight = Color(0xFF6B6B6B);     // 浅墨 - 次要文字
+  static const Color mist = Color(0xFFF0EDE8);         // 雾色 - 分割线
 
-  // 暗色主题
-  static ThemeData get darkTheme => ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.dark,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF4CAF50),
-      brightness: Brightness.dark,
-    ),
-    scaffoldBackgroundColor: const Color(0xFF1A1A2E),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      centerTitle: true,
-    ),
-    cardTheme: CardTheme(
-      elevation: 2,
-      color: const Color(0xFF2A2A4A),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: const Color(0xFF2A2A4A),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(24),
-        borderSide: BorderSide.none,
+  // 亮色主题
+  static ThemeData get lightTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: paper,
+      colorScheme: ColorScheme.light(
+        primary: bamboo,
+        onPrimary: Colors.white,
+        secondary: bambooLight,
+        surface: paper,
+        onSurface: ink,
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-    ),
-  );
+      appBarTheme: const AppBarTheme(
+        backgroundColor: paper,
+        foregroundColor: ink,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      textTheme: const TextTheme(
+        // 默认正文
+        bodyLarge: TextStyle(
+          fontSize: 17,
+          color: ink,
+          height: 1.8,
+          letterSpacing: 0.3,
+        ),
+        // 竹芽回复
+        bodyMedium: TextStyle(
+          fontSize: 16,
+          color: ink,
+          height: 1.9,
+          letterSpacing: 0.5,
+        ),
+        // 小字
+        bodySmall: TextStyle(
+          fontSize: 13,
+          color: inkLight,
+          height: 1.6,
+        ),
+      ),
+      dividerColor: mist,
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.transparent,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+        hintStyle: TextStyle(
+          color: inkLight.withValues(alpha: 0.5),
+          fontSize: 17,
+          height: 1.8,
+        ),
+      ),
+    );
+  }
+
+  // 深色主题
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: paperDark,
+      colorScheme: ColorScheme.dark(
+        primary: bamboo,
+        onPrimary: Colors.white,
+        secondary: bambooLight,
+        surface: paperDark,
+        onSurface: const Color(0xFFE8E4DE),
+      ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(
+          fontSize: 17,
+          color: Color(0xFFE8E4DE),
+          height: 1.8,
+          letterSpacing: 0.3,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 16,
+          color: Color(0xFFE8E4DE),
+          height: 1.9,
+          letterSpacing: 0.5,
+        ),
+        bodySmall: TextStyle(
+          fontSize: 13,
+          color: Color(0xFF9A958F),
+          height: 1.6,
+        ),
+      ),
+      dividerColor: const Color(0xFF2A2A2A),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.transparent,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+        hintStyle: TextStyle(
+          color: const Color(0xFF9A958F).withValues(alpha: 0.6),
+          fontSize: 17,
+          height: 1.8,
+        ),
+      ),
+    );
+  }
 }
+
+// 别名（兼容 main.dart）

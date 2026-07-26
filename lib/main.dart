@@ -1,37 +1,51 @@
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 竹芽 App - 主入口
+// 负责：Hive 初始化 → 全局 ProviderScope → MaterialApp.router
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'providers/app_providers.dart';
 
 void main() async {
+  // Flutter 异步初始化必须调用
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化 Hive 本地存储
+  // 初始化 Hive 本地存储（类 IndexedDB，用于持久化）
   await Hive.initFlutter();
+
+  // 打开三个盒子（类似表）：
+  // - settings  : 主题/API Key/TTS开关等设置
+  // - messages  : 对话历史
+  // - memory    : AI 长期记忆（SinoMem）
   await Hive.openBox('settings');
   await Hive.openBox('messages');
   await Hive.openBox('memory');
 
+  // Riverpod 跨组件状态管理，child 能通过 ref.watch/read 获取 providers
   runApp(const ProviderScope(child: ZhuyApp()));
 }
 
+/// 根 Widget：
+/// - MaterialApp.router：用 go_router 做声明式路由
+/// - 根据 themeProvider 切换亮/暗主题
 class ZhuyApp extends ConsumerWidget {
   const ZhuyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(routerProvider);
-    final isDarkMode = ref.watch(themeProvider);
+    final router = ref.watch(routerProvider);      // GoRouter 实例
+    final isDarkMode = ref.watch(themeProvider);  // true = 暗色主题
 
     return MaterialApp.router(
       title: '竹芽',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,    // 亮色主题配色
+      darkTheme: AppTheme.darkTheme,  // 暗色主题配色
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      routerConfig: router,
+      routerConfig: router,          // 注入路由配置
     );
   }
 }

@@ -31,15 +31,23 @@ class AsrService {
     );
   }
 
-  // 开始监听
+  // 开始监听（兼容新版 API）
   Future<void> startListening({
     required Function(String) onResult,
-    String? localeId, // 例如 'zh_CN'
+    String? localeId,
   }) async {
     if (!_isInitialized) await init();
     if (_isListening) await stopListening();
 
     _isListening = true;
+
+    final options = SpeechListenOptions(
+      localeId: localeId ?? 'zh_CN',
+      listenMode: ListenMode.dictation,
+      cancelOnError: true,
+      partialResults: true,
+    );
+
     await _stt.listen(
       onResult: (SpeechRecognitionResult result) {
         onResult(result.recognizedWords);
@@ -47,10 +55,7 @@ class AsrService {
           _isListening = false;
         }
       },
-      localeId: localeId ?? 'zh_CN',
-      listenMode: ListenMode.dictation,
-      cancelOnError: true,
-      partialResults: true,
+      listenOptions: options,
     );
   }
 
@@ -62,12 +67,10 @@ class AsrService {
 
   // 获取中文 localeId
   String? get zhLocaleId {
-    // 优先找 zh_CN
     final zhCN = _availableLocales.where(
       (l) => l.localeId == 'zh_CN' || l.localeId == 'zh_Hans_CN',
     );
     if (zhCN.isNotEmpty) return zhCN.first.localeId;
-    // 再找 zh
     final zh = _availableLocales.where((l) => l.localeId.startsWith('zh'));
     return zh.isNotEmpty ? zh.first.localeId : null;
   }
