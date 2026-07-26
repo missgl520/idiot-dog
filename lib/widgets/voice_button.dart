@@ -1,6 +1,17 @@
-// 语音输入按钮（按住说话）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 语音输入按钮（长按说话）
+//
+// 交互方式：长按开始录音，松开停止并自动发送识别文字
+//
+// 状态：
+//   默认（绿色 mic_none）→ 按下（红色 mic，脉冲动画）→ 停止（恢复默认）
+//
+// 依赖：AsrService（speech_to_text 插件）
+// 注意：需要麦克风权限（Android: RECORD_AUDIO，iOS: NSMicrophoneUsageDescription）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/theme/app_theme.dart';
 import '../providers/app_providers.dart';
 
 class VoiceButton extends ConsumerStatefulWidget {
@@ -14,11 +25,12 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnim;
-  bool _isPressed = false; // ignore: unused_field;
 
   @override
   void initState() {
     super.initState();
+
+    // 脉冲动画：录音时图标缩放 1.0→1.3，循环
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
@@ -34,19 +46,19 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
     super.dispose();
   }
 
+  // ── 按下：开始语音识别 ──
   Future<void> _startListening() async {
-    setState(() => _isPressed = true);
+    setState(() {});
     _pulseController.repeat();
-
-    final asr = ref.read(asrServiceProvider);
     ref.read(asrListeningProvider.notifier).state = true;
 
+    final asr = ref.read(asrServiceProvider);
     try {
-      // 开始语音识别
       await asr.startListening(
         onResult: (String text) {
           if (text.isNotEmpty) {
             debugPrint('ASR result: $text');
+            // TODO: 识别结果回填输入框或自动发送
           }
         },
       );
@@ -57,13 +69,14 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
         );
       }
     }
-    // 释放状态在 stopListening 里处理，这里只管开始
+    // 状态释放在 stopListening() 处理
   }
 
+  // ── 松开：停止语音识别 ──
   void _stopListening() {
     final asr = ref.read(asrServiceProvider);
     asr.stopListening();
-    setState(() => _isPressed = false);
+
     _pulseController.stop();
     _pulseController.reset();
     ref.read(asrListeningProvider.notifier).state = false;
@@ -74,41 +87,42 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
     final isListening = ref.watch(asrListeningProvider);
 
     return GestureDetector(
+      // 手势：按下开始，松开/取消停止
       onTapDown: (_) => _startListening(),
       onTapUp: (_) => _stopListening(),
       onTapCancel: _stopListening,
+
       child: AnimatedBuilder(
         animation: _pulseAnim,
         builder: (context, child) {
           return Transform.scale(
             scale: isListening ? _pulseAnim.value : 1.0,
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: isListening
-                    ? const Color(0xFFE53935)  // 录音中：红色
-                    : const Color(0xFF4CAF50),  // 默认：绿色
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isListening
-                            ? const Color(0xFFE53935)
-                            : const Color(0xFF4CAF50))
-                        .withValues(alpha: 0.3),
-                    blurRadius: isListening ? 12 : 6,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Icon(
-                isListening ? Icons.mic : Icons.mic_none,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
+            child: child,
           );
         },
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: isListening
+                ? const Color(0xFFE53935)  // 录音中：红色
+                : AppTheme.bamboo,         // 默认：竹绿
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: (isListening ? const Color(0xFFE53935) : AppTheme.bamboo)
+                    .withValues(alpha: 0.3),
+                blurRadius: isListening ? 12 : 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Icon(
+            isListening ? Icons.mic : Icons.mic_none,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
       ),
     );
   }

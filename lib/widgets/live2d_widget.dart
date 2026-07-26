@@ -1,7 +1,16 @@
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Live2D 虚拟角色组件
-// 说明：这里是模拟展示（用 logo 图片代替）
-// 后续接入 flutter_live2d 包后替换为真实 Live2D 模型渲染
+//
+// 当前实现：占位展示（用 logo 图片 + 呼吸动画）
+//
+// 后续接入 flutter_live2d 包后替换方向：
+//   1. pubspec.yaml 添加依赖：flutter_live2d: ^1.0.2
+//   2. 替换 Image.asset 为 Cubism4Widget / Live2DWidget
+//   3. 加载 .model3.json 模型文件
+//   4. 根据竹芽状态（thinking/writing/speaking）触发不同动画
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 
 class Live2DWidget extends StatefulWidget {
   const Live2DWidget({super.key});
@@ -19,7 +28,7 @@ class _Live2DWidgetState extends State<Live2DWidget>
   void initState() {
     super.initState();
 
-    // 呼吸动画（微微上下浮动）
+    // 呼吸动画：上下微微浮动，3 秒一个周期，循环往复
     _controller = AnimationController(
       duration: const Duration(milliseconds: 3000),
       vsync: this,
@@ -41,17 +50,14 @@ class _Live2DWidgetState extends State<Live2DWidget>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        return Positioned(
-          bottom: 120,
-          right: 16,
-          child: Transform.translate(
-            offset: Offset(0, _breatheAnim.value),
-            child: child,
-          ),
+        return Transform.translate(
+          // 呼吸浮动
+          offset: Offset(0, _breatheAnim.value),
+          child: child,
         );
       },
       child: GestureDetector(
-        onTap: () {},
+        onTap: () {},  // 未来可点击触发互动动画
         child: Container(
           width: 120,
           height: 120,
@@ -59,7 +65,7 @@ class _Live2DWidgetState extends State<Live2DWidget>
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.25),
+                color: AppTheme.bamboo.withValues(alpha: 0.25),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -70,13 +76,10 @@ class _Live2DWidgetState extends State<Live2DWidget>
             child: Image.asset(
               'assets/logo.png',
               fit: BoxFit.cover,
+              // 资源不存在时用竹子图标兜底
               errorBuilder: (ctx, err, stack) => Container(
                 color: const Color(0xFFE8F5E9),
-                child: const Icon(
-                  Icons.smart_toy_outlined,
-                  size: 60,
-                  color: Color(0xFF4CAF50),
-                ),
+                child: const Icon(Icons.smart_toy_outlined, size: 60, color: AppTheme.bamboo),
               ),
             ),
           ),

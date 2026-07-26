@@ -1,4 +1,14 @@
-// 图片/相机选择按钮
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 图片选择按钮（待接入）
+//
+// 当前实现：弹出底部菜单提示"待接入"
+//
+// 后续接入 image_picker 包后替换方向：
+//   1. pubspec.yaml 添加依赖：image_picker: ^1.1.2
+//   2. import 'package:image_picker/image_picker.dart';
+//   3. 相册：ImagePicker().pickImage(source: ImageSource.gallery)
+//   4. 相机：ImagePicker().pickImage(source: ImageSource.camera)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import 'package:flutter/material.dart';
 
 class ImagePickerButton extends StatelessWidget {
