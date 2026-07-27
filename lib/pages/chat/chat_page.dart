@@ -153,9 +153,11 @@ class _ChatPageState extends ConsumerState<ChatPage>
       ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.writing;
 
       // ===== Step 6: 逐字接收 AI 输出，增量更新 UI =====
+      // 后端接口：message=当前消息，history=对话历史
       String full = '';
       await for (final chunk in agnes.chatStream(
-        messages: msgs,
+        message: userText,
+        history: msgs,
         systemPrompt: effectiveSystem,
       )) {
         full += chunk;  // 累加这个字

@@ -1,137 +1,119 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Agnes LLM 服务
+// 竹芽对话服务（调后端 FastAPI）
 //
-// Agnes 是小米的 AI 对话模型（agnes-2.0-flash）
-// API Hub 地址：https://apihub.agnes-ai.com
+// 后端地址：http://localhost:8000
+// 对话接口：POST /chat
+// 健康检查：GET /health
 //
-// 提供两种调用方式：
-// - chat()     : 同步调用，一次性返回完整内容
-// - chatStream(): 流式调用，逐字返回（打字机效果）
+// 后端 SSE 格式（标准）：
+//   data: {"content":"字"}\n\n
+//   data: [DONE]\n\n
+//
+// 注意：
+// - 本文件调竹芽后端，由后端统一调用 Agnes API
+// - 不再直连 apihub.agnes-ai.com
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AgnesService {
-  static const String _baseUrl = 'https://apihub.agnes-ai.com';
-  static const String _model = 'agnes-2.0-flash';
-
-  // 默认 API Key（可在设置页覆盖）
-  static const String _defaultApiKey =
-      'sk-CcGTt05Z92jl64ZwrBuyaah2PHansRHuK0KniCV90hz8mwLI';
-
-  String? _apiKey;
-
-  /// 设置自定义 API Key（从设置页传入）
-  void setApiKey(String key) => _apiKey = key;
-
-  /// 当前使用的 API Key（优先用用户设置的，否则用默认的）
-  String get apiKey => _apiKey ?? _defaultApiKey;
+  // 前端连后端
+  // Android 模拟器：10.0.2.2 → 开发机 localhost
+  // iOS 模拟器：localhost
+  // 真机：局域网 IP（如 192.168.x.x:8000）
+  static const String _baseUrl = 'http://10.0.2.2:8000';
 
   // ━━━━━━━━━━━━━━━ 同步对话 ━━━━━━━━━━━━━━━
 
-  /// 一次返回完整回复（不推荐，响应慢）
-  /// messages      : 对话历史 [{role: 'user'|'assistant', content: '...'}]
-  /// systemPrompt  : 系统提示词（人设）
-  /// temperature   : 创造性 0.0-1.0（越高越随机）
-  /// maxTokens     : 最大生成 token 数
+  /// 一次返回完整回复
   Future<String> chat({
-    required List<Map<String, String>> messages,
+    required String message,
+    List<Map<String, String>> history = const [],
     String? systemPrompt,
     double temperature = 0.7,
-    int maxTokens = 2048,
+    bool saveToMemory = true,
   }) async {
-    final allMessages = <Map<String, String>>[];
-    if (systemPrompt != null) {
-      allMessages.add({'role': 'system', 'content': systemPrompt});
-    }
-    allMessages.addAll(messages);
-
     final response = await http.post(
-      Uri.parse('$_baseUrl/v1/chat/completions'),
-      headers: {
-        'Authorization': 'Bearer $apiKey',
-        'Content-Type': 'application/json',
-      },
+      Uri.parse('$_baseUrl/chat'),
+      headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'model': _model,
-        'messages': allMessages,
+        'message': message,
+        'history': history,
+        'system_prompt': systemPrompt,
         'temperature': temperature,
-        'max_tokens': maxTokens,
+        'stream': false,
+        'save_to_memory': saveToMemory,
       }),
     );
 
     if (response.statusCode != 200) {
-      final error = jsonDecode(response.body);
-      throw Exception(error['error']?['message'] ?? '请求失败');
+      throw Exception('后端响应失败: ${response.statusCode}\n${response.body}');
     }
 
     final data = jsonDecode(response.body);
-    return data['choices'][0]['message']['content'] as String;
+    return data['reply'] as String;
   }
 
   // ━━━━━━━━━━━━━━━ 流式对话（打字机） ━━━━━━━━━━━━━━━
 
   /// 流式返回：每个 chunk 是一个字/词，实现打字机效果
-  /// 用法：await for (final chunk in agnes.chatStream(...)) { ... }
+  ///
+  /// 后端 SSE 格式（标准）：
+  ///   data: {"content":"字"}\n\n
+  ///   data: [DONE]\n\n
   Stream<String> chatStream({
-    required List<Map<String, String>> messages,
+    required String message,
+    List<Map<String, String>> history = const [],
     String? systemPrompt,
     double temperature = 0.7,
-    int maxTokens = 2048,
+    bool saveToMemory = true,
   }) async* {
-    final allMessages = <Map<String, String>>[];
-    if (systemPrompt != null) {
-      allMessages.add({'role': 'system', 'content': systemPrompt});
-    }
-    allMessages.addAll(messages);
-
-    // 构造 HTTP 请求（流式模式）
     final request = http.Request(
       'POST',
-      Uri.parse('$_baseUrl/v1/chat/completions'),
+      Uri.parse('$_baseUrl/chat'),
     );
-    request.headers.addAll({
-      'Authorization': 'Bearer $apiKey',
-      'Content-Type': 'application/json',
-    });
+    request.headers['Content-Type'] = 'application/json';
     request.body = jsonEncode({
-      'model': _model,
-      'messages': allMessages,
+      'message': message,
+      'history': history,
+      'system_prompt': systemPrompt,
       'temperature': temperature,
-      'max_tokens': maxTokens,
-      'stream': true,  // 开启流式输出
+      'stream': true,
+      'save_to_memory': saveToMemory,
     });
 
-    // 发送请求
     final streamedResponse = await http.Client().send(request);
 
     if (streamedResponse.statusCode != 200) {
       final body = await streamedResponse.stream.bytesToString();
-      final error = jsonDecode(body);
-      throw Exception(error['error']?['message'] ?? '请求失败');
+      throw Exception('后端响应失败: ${streamedResponse.statusCode}\n$body');
     }
 
-    // 逐块解析 SSE 格式（Server-Sent Events）
-    // 格式：data: {"choices":[{"delta":{"content":"字"}}]}
-    // 结束：data: [DONE]
+    // 解析标准 SSE：data: {"content":"字"}\n\n
+    String buffer = '';
     await for (final chunk
         in streamedResponse.stream.transform(utf8.decoder)) {
-      final lines = chunk.split('\n');
-      for (final line in lines) {
-        if (line.startsWith('data: ')) {
-          final data = line.substring(6);
-          if (data == '[DONE]') break;
-          try {
-            final json = jsonDecode(data);
-            // delta.content 是这次增量返回的内容（一个字或一个词）
-            final content = json['choices'][0]['delta']['content'];
-            if (content != null) {
-              yield content as String;
-            }
-          } catch (_) {
-            // JSON 解析失败（如心跳 ping），跳过
+      buffer += chunk;
+
+      while (buffer.contains('\n')) {
+        final lineEnd = buffer.indexOf('\n');
+        String line = buffer.substring(0, lineEnd).trim();
+        buffer = buffer.substring(lineEnd + 1);
+
+        if (!line.startsWith('data: ')) continue;
+        final data = line.substring(6).trim();
+        if (data == '[DONE]') return;
+
+        try {
+          final json = jsonDecode(data);
+          // 标准格式
+          final content = json['content'] ?? json['choices']?[0]?['delta']?['content'];
+          if (content != null && content.toString().isNotEmpty) {
+            yield content.toString();
           }
+        } catch (_) {
+          // 非 JSON 行（如空行、注释），跳过
         }
       }
     }
