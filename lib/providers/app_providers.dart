@@ -48,7 +48,7 @@ class ThemeNotifier extends StateNotifier<bool> {
 /// AI 对话服务（Agnes / 小米小猫）
 /// 负责：流式返回 / System Prompt / API 调用
 final agnesServiceProvider = Provider<AgnesService>((ref) {
-  return AgnesService();
+  return AgnesService.instance;
 });
 
 /// TTS 服务（文字转语音，播报竹芽回复）

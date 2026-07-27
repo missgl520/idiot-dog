@@ -18,11 +18,23 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AgnesService {
+  // 单例：所有 ref.read 拿到同一个实例，setApiKey 永久生效
+  static AgnesService? _instance;
+  static AgnesService get instance => _instance ??= AgnesService._();
+  AgnesService._();
+
   // 前端连后端
   // Android 模拟器：10.0.2.2 → 开发机 localhost
   // iOS 模拟器：localhost
   // 真机：局域网 IP（如 192.168.x.x:8000）
-  static const String _baseUrl = 'http://10.0.2.2:8000';
+  String _baseUrl = 'http://10.0.2.2:8000';
+
+  /// 运行时覆盖 baseUrl（真机部署时用）
+  void setBaseUrl(String url) => _baseUrl = url;
+
+  /// 运行时覆盖 API Key（设置页写入后同步）
+  String? _runtimeApiKey;
+  void setApiKey(String key) => _runtimeApiKey = key;
 
   // ━━━━━━━━━━━━━━━ 同步对话 ━━━━━━━━━━━━━━━
 
@@ -34,17 +46,20 @@ class AgnesService {
     double temperature = 0.7,
     bool saveToMemory = true,
   }) async {
+    final body = <String, dynamic>{
+      'message': message,
+      'history': history,
+      'system_prompt': systemPrompt,
+      'temperature': temperature,
+      'stream': false,
+      'save_to_memory': saveToMemory,
+    };
+    if (_runtimeApiKey != null) body['api_key'] = _runtimeApiKey;
+
     final response = await http.post(
       Uri.parse('$_baseUrl/chat'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'message': message,
-        'history': history,
-        'system_prompt': systemPrompt,
-        'temperature': temperature,
-        'stream': false,
-        'save_to_memory': saveToMemory,
-      }),
+      body: jsonEncode(body),
     );
 
     if (response.statusCode != 200) {
@@ -69,19 +84,22 @@ class AgnesService {
     double temperature = 0.7,
     bool saveToMemory = true,
   }) async* {
-    final request = http.Request(
-      'POST',
-      Uri.parse('$_baseUrl/chat'),
-    );
-    request.headers['Content-Type'] = 'application/json';
-    request.body = jsonEncode({
+    final body = <String, dynamic>{
       'message': message,
       'history': history,
       'system_prompt': systemPrompt,
       'temperature': temperature,
       'stream': true,
       'save_to_memory': saveToMemory,
-    });
+    };
+    if (_runtimeApiKey != null) body['api_key'] = _runtimeApiKey;
+
+    final request = http.Request(
+      'POST',
+      Uri.parse('$_baseUrl/chat'),
+    );
+    request.headers['Content-Type'] = 'application/json';
+    request.body = jsonEncode(body);
 
     final streamedResponse = await http.Client().send(request);
 

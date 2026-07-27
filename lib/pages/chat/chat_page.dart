@@ -16,6 +16,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/app_providers.dart';
 import '../../models/message.dart';
 import '../../widgets/live2d_widget.dart';
+import '../../widgets/voice_button.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -422,22 +423,64 @@ class _ChatPageState extends ConsumerState<ChatPage>
                 child: isWorking ? _buildThinkingIndicator() : const SizedBox.shrink(),
               ),
 
-              // 文字输入框
-              TextField(
-                controller: _inputController,
-                focusNode: _focusNode,
-                maxLines: null,      // 自动扩展行数
-                minLines: 1,
-                textInputAction: TextInputAction.send,  // 软键盘显示"发送"按钮
-                onSubmitted: (_) => _send(),            // 回车发送
-                enabled: !isWorking,                     // 工作时禁用
-                style: Theme.of(context).textTheme.bodyLarge,
-                decoration: InputDecoration(
-                  hintText: '写给竹芽…',
-                  // 有文字时显示发送图标
-                  suffixIcon: isWorking
-                      ? null
-                      : _inputController.text.trim().isNotEmpty
+              // 文字输入框 + 语音按钮（Row 布局）
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // 语音按钮（左侧）
+                  VoiceButton(),
+                  const SizedBox(width: 12),
+
+                  // 输入框
+                  Expanded(
+                    child: TextField(
+                      controller: _inputController,
+                      focusNode: _focusNode,
+                      maxLines: null,
+                      minLines: 1,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                      enabled: !isWorking,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                      decoration: InputDecoration(
+                        hintText: '写给竹芽…',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                            width: 0.5,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                            width: 0.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF6B9E78),
+                            width: 1,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // 发送按钮（有文字时才显示）
+                  ListenableBuilder(
+                    listenable: _inputController,
+                    builder: (_, __) {
+                      final hasText = _inputController.text.trim().isNotEmpty;
+                      return !isWorking && hasText
                           ? IconButton(
                               onPressed: _send,
                               icon: const Icon(
@@ -445,9 +488,10 @@ class _ChatPageState extends ConsumerState<ChatPage>
                                 color: Color(0xFF6B9E78),
                               ),
                             )
-                          : null,
-                ),
-                onChanged: (_) => setState(() {}),  // 刷新发送按钮显示
+                          : const SizedBox(width: 48);
+                    },
+                  ),
+                ],
               ),
             ],
           ),
