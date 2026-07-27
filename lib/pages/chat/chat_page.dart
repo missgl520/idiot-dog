@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/app_providers.dart';
 import '../../models/message.dart';
+import '../../widgets/live2d_controller.dart';
 import '../../widgets/live2d_widget.dart';
 import '../../widgets/voice_button.dart';
 
@@ -56,6 +57,9 @@ class _ChatPageState extends ConsumerState<ChatPage>
     // 监听竹芽状态：变"想"或"写"时启动动画，变"idle"时停止
     // addPostFrameCallback 保证 context 和 ref 已就绪后再监听
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 初始化 Live2D
+      ref.read(live2dControllerProvider).init();
+
       // 竹芽状态 → 动画控制
       ref.listenManual(zhuaStatusProvider, (_, status) {
         if (status == ZhuaStatus.thinking || status == ZhuaStatus.writing) {
@@ -63,6 +67,8 @@ class _ChatPageState extends ConsumerState<ChatPage>
         } else {
           _thinkingController.stop();
         }
+        // 同步驱动 Live2D 动画
+        _syncLive2DStatus(status);
       });
 
       // 语音识别结果来了 → 填入输入框 + 自动发送
@@ -75,6 +81,22 @@ class _ChatPageState extends ConsumerState<ChatPage>
         }
       });
     });
+  }
+
+  // ── Live2D 状态同步 ──────────────────────────
+
+  void _syncLive2DStatus(ZhuaStatus status) {
+    final ctrl = ref.read(live2dControllerProvider);
+    switch (status) {
+      case ZhuaStatus.idle:
+        ctrl.setStatus(ZhuaLive2DStatus.idle);
+      case ZhuaStatus.thinking:
+        ctrl.setStatus(ZhuaLive2DStatus.thinking);
+      case ZhuaStatus.writing:
+        ctrl.setStatus(ZhuaLive2DStatus.thinking);
+      case ZhuaStatus.speaking:
+        ctrl.setStatus(ZhuaLive2DStatus.speaking);
+    }
   }
 
   @override
@@ -249,7 +271,15 @@ class _ChatPageState extends ConsumerState<ChatPage>
                     child: AnimatedOpacity(
                       opacity: status == ZhuaStatus.idle ? 1.0 : 0.4,
                       duration: const Duration(milliseconds: 600),
-                      child: const Live2DWidget(),
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final l2dCtrl = ref.watch(live2dControllerProvider);
+                          return ZhuaLive2DWidget(
+                            controller: l2dCtrl.viewController,
+                            onTap: () => l2dCtrl.playTap(),
+                          );
+                        },
+                      ),
                     ),
                   ),
 

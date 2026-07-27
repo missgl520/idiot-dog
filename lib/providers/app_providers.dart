@@ -17,6 +17,7 @@ import '../core/services/tts_service.dart';
 import '../core/services/asr_service.dart';
 import '../core/services/memory_service.dart';
 import '../models/message.dart';
+import '../widgets/live2d_controller.dart';
 
 // ━━━━━━━━━━━━━━━ 主题 ━━━━━━━━━━━━━━━
 
@@ -174,3 +175,11 @@ final asrListeningProvider = StateProvider<bool>((ref) => false);
 
 /// ASR 识别结果（语音输入完成后写入，chat_page 监听并发送）
 final asrResultProvider = StateProvider<String?>((ref) => null);
+
+// ━━━━━━━━━━━━━━━ Live2D ━━━━━━━━━━━━━━━
+
+/// Live2D 控制器单例
+/// 在 App 启动时初始化，对话过程中复用
+final live2dControllerProvider = Provider<ZhuaLive2DController>((ref) {
+  return ZhuaLive2DController.instance;
+});

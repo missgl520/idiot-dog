@@ -1,90 +1,131 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Live2D 虚拟角色组件
+// Live2D 虚拟角色 Widget
 //
-// 当前实现：占位展示（用 logo 图片 + 呼吸动画）
+// 集成 flutter_live2d，接 Shizuku 模型
 //
-// 后续接入 flutter_live2d 包后替换方向：
-//   1. pubspec.yaml 添加依赖：flutter_live2d: ^1.0.2
-//   2. 替换 Image.asset 为 Cubism4Widget / Live2DWidget
-//   3. 加载 .model3.json 模型文件
-//   4. 根据竹芽状态（thinking/writing/speaking）触发不同动画
+// 竹芽状态 → 动画映射：
+//   idle        → idle 待机动画（循环）+ f01 表情
+//   thinking    → f02 表情（等 AI 回复）
+//   speaking    → tap_body 动画 + f03 表情（竹芽在说话）
+//   listening   → f04 表情（用户在说话，竹芽专注）
+//   点击身体    → 触发摇晃动画（tap_body）
+//
+// 模型：assets/live2d/shizuku/
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
 
-class Live2DWidget extends StatefulWidget {
-  const Live2DWidget({super.key});
+import 'package:flutter/material.dart';
+import 'package:flutter_live2d/flutter_live2d.dart';
+
+/// 竹芽 Live2D 虚拟角色 Widget
+///
+/// 必须配合 ZhuaLive2DController 使用：
+///   final controller = ref.read(live2dControllerProvider);
+///   ZhuaLive2DWidget(controller: controller.viewController)
+///
+/// 模型加载中 / 失败 → 显示加载动画兜底
+class ZhuaLive2DWidget extends StatelessWidget {
+  final Live2DViewController controller;
+  final VoidCallback? onTap;
+
+  const ZhuaLive2DWidget({
+    super.key,
+    required this.controller,
+    this.onTap,
+  });
 
   @override
-  State<Live2DWidget> createState() => _Live2DWidgetState();
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ValueListenableBuilder<Live2DViewState>(
+        valueListenable: controller,
+        builder: (context, state, _) {
+          if (!state.isAttached || state.loadedModel == null) {
+            return const _ModelLoadingPlaceholder();
+          }
+          return const Live2DView(controller: null);
+        },
+      ),
+    );
+  }
 }
 
-class _Live2DWidgetState extends State<Live2DWidget>
+/// 模型加载中 / 失败时的兜底 UI
+class _ModelLoadingPlaceholder extends StatelessWidget {
+  const _ModelLoadingPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6B9E78).withValues(alpha: 0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: const Center(child: _LoadingBounce()),
+    );
+  }
+}
+
+/// 加载中动画（三个点跳动）
+class _LoadingBounce extends StatefulWidget {
+  const _LoadingBounce();
+
+  @override
+  State<_LoadingBounce> createState() => _LoadingBounceState();
+}
+
+class _LoadingBounceState extends State<_LoadingBounce>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _breatheAnim;
+  late AnimationController _c;
 
   @override
   void initState() {
     super.initState();
-
-    // 呼吸动画：上下微微浮动，3 秒一个周期，循环往复
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 3000),
+    _c = AnimationController(
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
-    )..repeat(reverse: true);
-
-    _breatheAnim = Tween<double>(begin: -6, end: 6).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    )..repeat();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _c.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Transform.translate(
-          // 呼吸浮动
-          offset: Offset(0, _breatheAnim.value),
-          child: child,
+      animation: _c,
+      builder: (_, __) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            final delay = i * 0.2;
+            final phase = ((_c.value + delay) % 1.0);
+            final bounce = phase < 0.5 ? phase * 2 : 2 - phase * 2;
+            return Container(
+              width: 10,
+              height: 10,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6B9E78)
+                    .withValues(alpha: 0.4 + bounce * 0.6),
+                shape: BoxShape.circle,
+              ),
+            );
+          }),
         );
       },
-      child: GestureDetector(
-        onTap: () {},  // 未来可点击触发互动动画
-        child: Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.bamboo.withValues(alpha: 0.25),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
-            child: Image.asset(
-              'assets/logo.png',
-              fit: BoxFit.cover,
-              // 资源不存在时用竹子图标兜底
-              errorBuilder: (ctx, err, stack) => Container(
-                color: const Color(0xFFE8F5E9),
-                child: const Icon(Icons.smart_toy_outlined, size: 60, color: AppTheme.bamboo),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
