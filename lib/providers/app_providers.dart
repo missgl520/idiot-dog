@@ -169,5 +169,8 @@ final ttsEnabledProvider = StateProvider<bool>((ref) {
   return box.get('ttsEnabled', defaultValue: true) as bool;
 });
 
-/// ASR 监听状态（暂未使用，长按说话）
+/// ASR 监听状态
 final asrListeningProvider = StateProvider<bool>((ref) => false);
+
+/// ASR 识别结果（语音输入完成后写入，chat_page 监听并发送）
+final asrResultProvider = StateProvider<String?>((ref) => null);

@@ -1,14 +1,13 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 语音输入按钮（长按说话）
 //
-// 交互方式：长按开始录音，松开停止并自动发送识别文字
-//
-// 状态：
-//   默认（绿色 mic_none）→ 按下（红色 mic，脉冲动画）→ 停止（恢复默认）
+// 交互：长按开始录音，松开停止，自动发送识别文字
+// 状态：默认(绿) → 按下(红+脉冲) → 停止(恢复)
 //
 // 依赖：AsrService（speech_to_text 插件）
-// 注意：需要麦克风权限（Android: RECORD_AUDIO，iOS: NSMicrophoneUsageDescription）
+// 权限：麦克风（Android: RECORD_AUDIO，iOS: NSMicrophoneUsageDescription）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_theme.dart';
@@ -25,12 +24,14 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnim;
+  bool _permissionGranted = false;
+  String _lastRecognized = '';
 
   @override
   void initState() {
     super.initState();
+    _checkPermission();
 
-    // 脉冲动画：录音时图标缩放 1.0→1.3，循环
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
@@ -46,19 +47,38 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
     super.dispose();
   }
 
-  // ── 按下：开始语音识别 ──
+  Future<void> _checkPermission() async {
+    final asr = ref.read(asrServiceProvider);
+    _permissionGranted = await asr.requestPermission();
+  }
+
   Future<void> _startListening() async {
+    if (!_permissionGranted) {
+      _permissionGranted = await ref.read(asrServiceProvider).requestPermission();
+      if (!_permissionGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('请允许麦克风权限')),
+          );
+        }
+        return;
+      }
+    }
+
     setState(() {});
     _pulseController.repeat();
     ref.read(asrListeningProvider.notifier).state = true;
 
     final asr = ref.read(asrServiceProvider);
+
     try {
       await asr.startListening(
-        onResult: (String text) {
-          if (text.isNotEmpty) {
-            debugPrint('ASR result: $text');
-            // TODO: 识别结果回填输入框或自动发送
+        localeId: asr.zhLocaleId ?? 'zh_CN',
+        onResult: (String text, bool finalResult) {
+          _lastRecognized = text;
+          if (finalResult && text.isNotEmpty) {
+            // 写入 provider，chat_page 监听后自动发送
+            ref.read(asrResultProvider.notifier).state = text;
           }
         },
       );
@@ -69,10 +89,8 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
         );
       }
     }
-    // 状态释放在 stopListening() 处理
   }
 
-  // ── 松开：停止语音识别 ──
   void _stopListening() {
     final asr = ref.read(asrServiceProvider);
     asr.stopListening();
@@ -87,7 +105,6 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
     final isListening = ref.watch(asrListeningProvider);
 
     return GestureDetector(
-      // 手势：按下开始，松开/取消停止
       onTapDown: (_) => _startListening(),
       onTapUp: (_) => _stopListening(),
       onTapCancel: _stopListening,
@@ -105,12 +122,14 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
           height: 48,
           decoration: BoxDecoration(
             color: isListening
-                ? const Color(0xFFE53935)  // 录音中：红色
-                : AppTheme.bamboo,         // 默认：竹绿
+                ? const Color(0xFFE53935)
+                : AppTheme.bamboo,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: (isListening ? const Color(0xFFE53935) : AppTheme.bamboo)
+                color: (isListening
+                        ? const Color(0xFFE53935)
+                        : AppTheme.bamboo)
                     .withValues(alpha: 0.3),
                 blurRadius: isListening ? 12 : 6,
                 offset: const Offset(0, 3),

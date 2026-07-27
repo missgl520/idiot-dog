@@ -1,21 +1,20 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ASR 语音识别服务（Automatic Speech Recognition）
 //
-// 底层依赖：speech_to_text 插件，调用系统语音识别引擎
+// 底层依赖：speech_to_text，调用系统语音引擎
 // - Android：Google 语音识别 / 小米语音
 // - iOS：Apple Speech Framework
 //
 // 工作流程：
-//   用户长按语音按钮 → startListening() → 系统录音+识别 → onResult 回调
-// → 用户松开 / 自动停 → stopListening()
+//   用户长按 → startListening() → 系统录音+识别 → onResult 回调
+//   用户松开 → stopListening() → 返回最终识别文字
 //
-// 注意事项：
+// 注意：
 // - 需要麦克风权限（permission_handler）
-// - 部分设备/语言需要联网才能识别
-// - partialResults=true 时，识别过程中会多次回调（中间结果）
+// - 部分设备/语言需联网才能识别
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
 
 class AsrService {
   final SpeechToText _stt = SpeechToText();
@@ -23,14 +22,11 @@ class AsrService {
   bool _isInitialized = false;
   bool _isListening = false;
 
-  /// 当前是否正在监听（录音中）
   bool get isListening => _isListening;
 
-  /// 系统支持的识别语言列表（用于切换语言）
   List<LocaleName> _availableLocales = [];
 
   // ── 初始化 ──
-  // 必须先调用一次，检查权限并加载语言包
   Future<void> init() async {
     if (_isInitialized) return;
     _availableLocales = await _stt.locales();
@@ -41,20 +37,19 @@ class AsrService {
   Future<bool> requestPermission() async {
     return await _stt.initialize(
       onStatus: (status) {
-        // status 枚举：listening / notListening / done / ...（部分平台）
         _isListening = status == 'listening';
       },
       onError: (error) {
         _isListening = false;
-        // error.errorMsg 可用于展示错误原因
       },
     );
   }
 
   // ── 开始监听 ──
-  // localeId: 语言标识，zh_CN=中文简体，zh_Hans_CN=中文简体（新版 API）
+  // onResult: 每次识别到文字时回调（中间结果 + 最终结果）
+  // 返回值：是否正常启动
   Future<void> startListening({
-    required Function(String) onResult,
+    required void Function(String text, bool finalResult) onResult,
     String? localeId,
   }) async {
     if (!_isInitialized) await init();
@@ -62,22 +57,16 @@ class AsrService {
 
     _isListening = true;
 
-    final options = SpeechListenOptions(
-      localeId: localeId ?? 'zh_CN',
-      listenMode: ListenMode.dictation,  // 听写模式，适合口语
-      cancelOnError: true,               // 出错自动停止
-      partialResults: true,              // 中间结果也回调（打字效果）
-    );
-
     await _stt.listen(
-      onResult: (SpeechRecognitionResult result) {
-        onResult(result.recognizedWords);
-        // finalResult=true 表示一句话说完了
-        if (result.finalResult) {
-          _isListening = false;
-        }
+      onResult: (result) {
+        onResult(result.recognizedWords, result.finalResult);
       },
-      listenOptions: options,
+      listenOptions: SpeechListenOptions(
+        localeId: localeId ?? 'zh_CN',
+        listenMode: ListenMode.dictation,
+        cancelOnError: true,
+        partialResults: true, // 中间过程也回调（打字效果）
+      ),
     );
   }
 
@@ -88,7 +77,6 @@ class AsrService {
   }
 
   // ── 工具：找中文 localeId ──
-  // 兼容旧版（zh_CN）和新版（zh_Hans_CN）格式
   String? get zhLocaleId {
     final zhCN = _availableLocales.where(
       (l) => l.localeId == 'zh_CN' || l.localeId == 'zh_Hans_CN',
@@ -99,6 +87,6 @@ class AsrService {
   }
 
   void dispose() {
-    _stt.cancel();  // 取消当前识别，释放资源
+    _stt.cancel();
   }
 }

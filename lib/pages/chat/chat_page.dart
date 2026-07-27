@@ -55,11 +55,22 @@ class _ChatPageState extends ConsumerState<ChatPage>
     // 监听竹芽状态：变"想"或"写"时启动动画，变"idle"时停止
     // addPostFrameCallback 保证 context 和 ref 已就绪后再监听
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 竹芽状态 → 动画控制
       ref.listenManual(zhuaStatusProvider, (_, status) {
         if (status == ZhuaStatus.thinking || status == ZhuaStatus.writing) {
           _thinkingController.repeat(reverse: true);
         } else {
           _thinkingController.stop();
+        }
+      });
+
+      // 语音识别结果来了 → 填入输入框 + 自动发送
+      ref.listenManual(asrResultProvider, (_, text) {
+        if (text != null && text.isNotEmpty) {
+          _inputController.text = text;
+          _send();
+          // 清空 provider，避免重复触发
+          ref.read(asrResultProvider.notifier).state = null;
         }
       });
     });
