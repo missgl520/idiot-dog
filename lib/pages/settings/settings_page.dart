@@ -185,6 +185,34 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   Hive.box('settings').put('ttsEnabled', v);
                 },
               ),
+              if (ttsEnabled) ...[
+                const Divider(height: 1),
+                ListTile(
+                  title: const Text('语音音色'),
+                  subtitle: const Text(
+                    'cartesia = 情感TTS（自然好听）\nsystem = 系统TTS（降级方案）',
+                  ),
+                  trailing: DropdownButton<String>(
+                    value: ref.watch(ttsModeProvider),
+                    onChanged: (v) {
+                      if (v != null) {
+                        ref.read(ttsModeProvider.notifier).state = v;
+                        Hive.box('settings').put('ttsMode', v);
+                      }
+                    },
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'cartesia',
+                        child: Text('情感 TTS ✨'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'system',
+                        child: Text('系统 TTS'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
 

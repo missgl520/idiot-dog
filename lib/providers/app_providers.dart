@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../core/services/agnes_service.dart';
 import '../core/services/tts_service.dart';
+import '../core/services/cartesia_tts_service.dart';
 import '../core/services/asr_service.dart';
 import '../core/services/memory_service.dart';
 import '../models/message.dart';
@@ -164,10 +165,25 @@ final zhuaStatusProvider = StateProvider<ZhuaStatus>((ref) => ZhuaStatus.idle);
 /// 用户当前正在输入的草稿（暂未使用）
 final draftProvider = StateProvider<String>((ref) => '');
 
+/// TTS 服务（文字转语音，播报竹芽回复）
+/// 优先使用 Cartesia API TTS（自然音色+情感）
+/// 系统 TTS（flutter_tts）为降级方案
+final cartesiaTtsServiceProvider = Provider<CartesiaTtsService>((ref) {
+  return CartesiaTtsService();
+});
+
 /// TTS 开关（竹芽说话是否自动播报语音）
 final ttsEnabledProvider = StateProvider<bool>((ref) {
   final box = Hive.box('settings');
   return box.get('ttsEnabled', defaultValue: true) as bool;
+});
+
+/// TTS 模式切换
+/// - 'cartesia'：调用竹芽后端 API TTS（情感音色，推荐）
+/// - 'system'：系统 TTS（flutter_tts，降级）
+final ttsModeProvider = StateProvider<String>((ref) {
+  final box = Hive.box('settings');
+  return box.get('ttsMode', defaultValue: 'cartesia') as String;
 });
 
 /// ASR 监听状态

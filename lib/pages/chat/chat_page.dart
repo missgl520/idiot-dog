@@ -211,8 +211,24 @@ class _ChatPageState extends ConsumerState<ChatPage>
       final ttsOn = ref.read(ttsEnabledProvider);
       if (ttsOn) {
         ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.speaking;
-        final tts = ref.read(ttsServiceProvider);
-        await tts.speak(full);
+
+        // 优先：Cartesia API TTS（自然音色 + 情感）
+        final ttsMode = ref.read(ttsModeProvider);
+        if (ttsMode == 'cartesia') {
+          try {
+            final cartesiaTts = ref.read(cartesiaTtsServiceProvider);
+            await cartesiaTts.speak(full);
+          } catch (e) {
+            // Cartesia 失败，降级到系统 TTS
+            print('[Chat] Cartesia TTS 失败，降级: $e');
+            final tts = ref.read(ttsServiceProvider);
+            await tts.speak(full);
+          }
+        } else {
+          // 系统 TTS（flutter_tts）
+          final tts = ref.read(ttsServiceProvider);
+          await tts.speak(full);
+        }
       }
 
       // ===== Step 10: 回到空闲状态 =====
