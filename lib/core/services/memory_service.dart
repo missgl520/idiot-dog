@@ -30,7 +30,7 @@ Future<String> _fetchMemoryContextFromBackend(
   String query, {
   int limit = 5,
 }) async {
-  const baseUrl = 'http://10.0.2.2:8000';
+  const baseUrl = 'http://1.15.140.203:8000';
   final uri = Uri.parse('$baseUrl/memory/search').replace(
     queryParameters: {
       'q': query,

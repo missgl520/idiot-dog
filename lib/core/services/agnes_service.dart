@@ -23,11 +23,8 @@ class AgnesService {
   static AgnesService get instance => _instance ??= AgnesService._();
   AgnesService._();
 
-  // 前端连后端
-  // Android 模拟器：10.0.2.2 → 开发机 localhost
-  // iOS 模拟器：localhost
-  // 真机：局域网 IP（如 192.168.x.x:8000）
-  String _baseUrl = 'http://10.0.2.2:8000';
+  // 前端连后端（真机用服务器公网地址）
+  String _baseUrl = 'http://1.15.140.203:8000';
 
   /// 运行时覆盖 baseUrl（真机部署时用）
   void setBaseUrl(String url) => _baseUrl = url;

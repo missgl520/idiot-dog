@@ -26,7 +26,7 @@ class CartesiaTtsService {
   /// - Android 模拟器：10.0.2.2:8000
   /// - Android 真机（局域网）：电脑局域网IP:8000
   /// - iOS 模拟器：localhost:8000
-  String _baseUrl = 'http://10.0.2.2:8000';
+  String _baseUrl = 'http://1.15.140.203:8000';
 
   bool _isInitialized = false;
   bool _isPlaying = false;
