@@ -24,7 +24,7 @@ class AgnesService {
   AgnesService._();
 
   // 前端连后端（真机用服务器公网地址）
-  String _baseUrl = 'http://1.15.140.203:8000';
+  String _baseUrl = 'http://missgl.cc.cd:8000';
 
   /// 运行时覆盖 baseUrl（真机部署时用）
   void setBaseUrl(String url) => _baseUrl = url;
