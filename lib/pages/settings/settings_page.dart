@@ -135,7 +135,39 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   children: [
                     const Text('Agnes API Key', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                     const SizedBox(height: 4),
-                    Text('从 apihub.agnes-ai.com 获取', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    Text(
+                      '国内版/国际版二选一',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 10),
+                    // CN/国际版切换
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('🇨🇳 国内版（推荐）'),
+                          selected: ref.watch(agnesUseCNProvider),
+                          onSelected: (v) {
+                            ref.read(agnesUseCNProvider.notifier).state = v;
+                            Hive.box('settings').put('agnesUseCN', v);
+                            ref.read(agnesServiceProvider).setUseCN(v);
+                          },
+                          selectedColor: Colors.green[100],
+                        ),
+                        ChoiceChip(
+                          label: const Text('🌐 国际版'),
+                          selected: !ref.watch(agnesUseCNProvider),
+                          onSelected: (v) {
+                            if (v) {
+                              ref.read(agnesUseCNProvider.notifier).state = false;
+                              Hive.box('settings').put('agnesUseCN', false);
+                              ref.read(agnesServiceProvider).setUseCN(false);
+                            }
+                          },
+                          selectedColor: Colors.blue[100],
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _apiKeyController,

@@ -78,6 +78,17 @@ final apiKeyProvider = StateProvider<String>((ref) {
   return box.get('agnesApiKey', defaultValue: '') as String;
 });
 
+// ━━━━━━━━━━━━━━━ Agnes 服务器区域 ━━━━━━━━━━━━━━━
+
+/// Agnes 使用的 API 服务器
+/// - true  = 国内版 platform.agnes-ai.cn
+/// - false = 国际版 apihub.agnes-ai.com
+/// 持久化到 Hive
+final agnesUseCNProvider = StateProvider<bool>((ref) {
+  final box = Hive.box('settings');
+  return box.get('agnesUseCN', defaultValue: true) as bool;
+});
+
 // ━━━━━━━━━━━━━━━ 消息列表 ━━━━━━━━━━━━━━━
 
 /// 对话消息列表 Provider
