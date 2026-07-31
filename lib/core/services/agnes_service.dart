@@ -33,7 +33,8 @@ class AgnesService {
   // Agnes 国际版
   static const _apiIntl = 'https://apihub.agnes-ai.com/v1/chat/completions';
   // Agnes 国内版
-  static const _apiCN = 'https://platform.agnes-ai.cn/api/chat/completions';
+  // Agnes CN 2026-07-29 迁移后用 apihub.agnes-ai.cn/v1（旧 platform.agnes-ai.cn 已废弃）
+  static const _apiCN = 'https://apihub.agnes-ai.cn/v1/chat/completions';
 
   // 当前选中的 API（由 App 在设置页控制）
   bool _useCN = true;  // 默认国内版

@@ -29,19 +29,22 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _apiKeyController = TextEditingController();
+  final _backendUrlController = TextEditingController();
   bool _obscureKey = true;  // 是否隐藏 API Key
 
   @override
   void initState() {
     super.initState();
-    // 初始化时从 Hive 读取已保存的 API Key
+    // 初始化时从 Hive 读取已保存的 API Key 和后端地址
     final box = Hive.box('settings');
     _apiKeyController.text = box.get('agnesApiKey', defaultValue: '') as String;
+    _backendUrlController.text = BackendConfig.instance.baseUrl;
   }
 
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _backendUrlController.dispose();
     super.dispose();
   }
 
@@ -56,6 +59,60 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('API Key 已保存')),
+    );
+  }
+
+  // ── 后端地址弹窗 ──
+  void _showBackendUrlDialog(BuildContext ctx) {
+    _backendUrlController.text = BackendConfig.instance.baseUrl;
+    showDialog(
+      context: ctx,
+      builder: (ctx) => AlertDialog(
+        title: const Text('后端地址'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '填写竹芽后端服务地址',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _backendUrlController,
+              decoration: const InputDecoration(
+                labelText: '地址',
+                hintText: 'http://localhost:8000',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.url,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '局域网：电脑 IP + :8000\n例如：http://192.168.1.100:8000',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final url = _backendUrlController.text.trim();
+              BackendConfig.instance.setBaseUrl(url);
+              setState(() {}); // 刷新 UI
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('后端地址已保存：$url')),
+              );
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -196,6 +253,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     ),
                   ],
                 ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── 后端配置 ──
+          _SectionTitle('后端配置'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.cloud_outlined, color: Colors.blue),
+                title: const Text('后端地址'),
+                subtitle: Text(
+                  BackendConfig.instance.baseUrl,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showBackendUrlDialog(context),
               ),
             ],
           ),

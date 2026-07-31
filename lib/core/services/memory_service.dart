@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../../providers/app_providers.dart';
 
 // ━━━━━━━━━━━━━━━ 后端接口（HTTP） ━━━━━━━━━━━━━━━
 
@@ -30,7 +31,7 @@ Future<String> _fetchMemoryContextFromBackend(
   String query, {
   int limit = 5,
 }) async {
-  const baseUrl = 'http://missgl.cc.cd:8000';
+  final baseUrl = BackendConfig.instance.baseUrl;
   final uri = Uri.parse('$baseUrl/memory/search').replace(
     queryParameters: {
       'q': query,

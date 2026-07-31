@@ -2,12 +2,9 @@
 // 全局状态 Providers（Riverpod）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-// Provider 架构说明：
-// - StateNotifierProvider : 可变状态，有 .notifier 操作状态
-// - Provider              : 只读服务（AgnesService / TTS / ASR / Memory）
-// - StateProvider         : 简单状态（布尔/字符串）
-//
-// 所有状态默认是 App 全局共享的，放在这里统一管理。
+// 后端地址配置单例
+// - 所有服务从这里读后端地址
+// - 用户可在设置页修改
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +16,24 @@ import '../core/services/asr_service.dart';
 import '../core/services/memory_service.dart';
 import '../models/message.dart';
 import '../widgets/live2d_controller.dart';
+
+// ━━━━━━━━━━━━━━━ 后端地址配置 ━━━━━━━━━━━━━━━
+
+/// 后端地址单例（全局共享，App 生命周期内唯一）
+class BackendConfig {
+  BackendConfig._();
+  static final BackendConfig _instance = BackendConfig._();
+  static BackendConfig get instance => _instance;
+
+  /// 读取当前后端地址（默认 http://localhost:8000）
+  String get baseUrl =>
+      Hive.box('settings').get('backendUrl', defaultValue: 'http://localhost:8000') as String;
+
+  /// 写入后端地址
+  void setBaseUrl(String url) {
+    Hive.box('settings').put('backendUrl', url);
+  }
+}
 
 // ━━━━━━━━━━━━━━━ 主题 ━━━━━━━━━━━━━━━
 

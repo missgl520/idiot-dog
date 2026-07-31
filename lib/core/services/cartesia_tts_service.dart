@@ -20,16 +20,14 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../providers/app_providers.dart';
 
 class CartesiaTtsService {
   late final Dio _dio;
   final AudioPlayer _player = AudioPlayer();
 
-  /// 竹芽后端地址
-  /// - Android 模拟器：10.0.2.2:8000
-  /// - Android 真机（局域网）：电脑局域网IP:8000
-  /// - iOS 模拟器：localhost:8000
-  String _baseUrl = 'http://missgl.cc.cd:8000';
+  /// 竹芽后端地址（从设置读取，支持用户自定义）
+  String _baseUrl = '';
 
   bool _isInitialized = false;
   bool _isPlaying = false;
@@ -42,11 +40,8 @@ class CartesiaTtsService {
 
   // ── 初始化 ──
   Future<void> init({String? baseUrl}) async {
+    _baseUrl = baseUrl ?? BackendConfig.instance.baseUrl;
     if (_isInitialized && baseUrl == null) return;
-
-    if (baseUrl != null) {
-      _baseUrl = baseUrl;
-    }
 
     _dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 10),
