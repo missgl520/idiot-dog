@@ -31,6 +31,9 @@ dependencies:
   # TTS（小米离线引擎，flutter_tts调用系统TTS）
   flutter_tts: ^4.2.0
 
+  # 在线TTS音频播放（Cartesia）
+  just_audio: ^0.9.43
+
   # ASR语音识别
   speech_to_text: ^7.0.0
 

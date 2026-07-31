@@ -14,13 +14,16 @@
 //   await tts.speakEmotion('太好了！', 'happy');
 //   await tts.stop();
 //
-// 依赖：dio（HTTP 客户端）
+// 依赖：dio（HTTP 客户端）、just_audio（音频播放）、path_provider（临时文件）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-import 'dart:typed_data';
+import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 
 class CartesiaTtsService {
   late final Dio _dio;
+  final AudioPlayer _player = AudioPlayer();
 
   /// 竹芽后端地址
   /// - Android 模拟器：10.0.2.2:8000
@@ -46,13 +49,18 @@ class CartesiaTtsService {
     }
 
     _dio = Dio(BaseOptions(
-      // 连接超时 10s，接收超时 30s（TTS 音频稍大）
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),
-      // 允许 HTTP（开发环境）
-      // 生产环境建议切换到 HTTPS
       validateStatus: (status) => true,
     ));
+
+    // 监听播放完成事件
+    _player.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        _isPlaying = false;
+        onPlayingChanged?.call(false);
+      }
+    });
 
     _isInitialized = true;
 
@@ -81,11 +89,14 @@ class CartesiaTtsService {
   Future<void> _speak(String text, {String? emotion}) async {
     if (!_isInitialized) await init();
 
+    // 播放前先停掉之前的
+    await _player.stop();
+
     _isPlaying = true;
     onPlayingChanged?.call(true);
 
+    File? tempFile;
     try {
-      // 调用竹芽后端 /tts 或 /tts/emotion
       final endpoint = emotion != null ? '/tts/emotion' : '/tts';
       final data = emotion != null
           ? {'text': text, 'emotion': emotion}
@@ -96,36 +107,35 @@ class CartesiaTtsService {
         data: data,
         options: Options(
           responseType: ResponseType.bytes,
-          headers: {
-            'Content-Type': 'application/json',
-            // 后端兼容：如果有 Content-Length 相关问题可加
-          },
+          headers: {'Content-Type': 'application/json'},
         ),
       );
 
-      final bytes = Uint8List.fromList(resp.data!.cast<int>());
+      final bytes = resp.data!.cast<int>().toList();
       print('[CartesiaTts] 收到音频: ${bytes.length} bytes');
 
-      // 播放音频
-      await _playAudioBytes(bytes);
+      // 写入临时 mp3 文件，用 just_audio 播放
+      final tmpDir = await getTemporaryDirectory();
+      tempFile = File('${tmpDir.path}/zhuy_tts_${DateTime.now().millisecondsSinceEpoch}.mp3');
+      await tempFile.writeAsBytes(bytes);
+
+      await _player.setFilePath(tempFile.path);
+      await _player.play();
     } on DioException catch (e) {
       print('[CartesiaTts] 请求失败: $e');
-      // 网络失败静默降级，不打断用户体验
     } finally {
+      // 清理临时文件（稍后异步删）
+      if (tempFile != null) {
+        tempFile.delete().catchError((_) {});
+      }
       _isPlaying = false;
       onPlayingChanged?.call(false);
     }
   }
 
-  // ── 播放音频字节 ──
-  Future<void> _playAudioBytes(Uint8List bytes) async {
-    // TODO: 接入 audioPlayers 或 just_audio 包播放 MP3
-    // 临时：直接打印，大小正常即说明通了
-    print('[CartesiaTts] 播放音频，大小: ${bytes.length} bytes');
-  }
-
   // ── 停止播放 ──
   Future<void> stop() async {
+    await _player.stop();
     _isPlaying = false;
     onPlayingChanged?.call(false);
   }
@@ -134,10 +144,10 @@ class CartesiaTtsService {
   /// 手动指定后端地址（真机测试时用）
   void setBaseUrl(String url) {
     _baseUrl = url;
-    _isInitialized = false; // 触发重连
+    _isInitialized = false;
   }
 
   void dispose() {
-    stop();
+    _player.dispose();
   }
 }
