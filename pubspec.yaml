@@ -115,5 +115,3 @@ flutter:
   assets:
     # Live2D 模型资源目录
     - assets/live2d/
-    # 音频资源目录
-    - assets/audio/
