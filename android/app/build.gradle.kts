@@ -19,7 +19,7 @@ android {
         applicationId = "com.zhuyapp.zhuyapp"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 24  // flutter_live2d 需要 OpenGL ES 2.0，最低 Android 7.0
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
