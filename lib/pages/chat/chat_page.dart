@@ -164,8 +164,10 @@ class _ChatPageState extends ConsumerState<ChatPage>
           ? '$systemPrompt\n$memoryCtx'
           : systemPrompt;
 
-      // ===== Step 3: 构建消息列表（history 转 API 格式）=====
-      final msgs = history.map((m) => {
+      // ===== Step 3: 限长 history，最多传最近 10 条（SDD §5）=====
+      final msgs = (history.length > 10
+          ? history.sublist(history.length - 10)
+          : history).map((m) => {
         'role': m.role,
         'content': m.content,
       }).toList();
@@ -182,19 +184,23 @@ class _ChatPageState extends ConsumerState<ChatPage>
       );
       ref.read(messagesProvider.notifier).addMessage(aiMsg);
 
-      // ===== Step 5: 竹芽进入"写"的状态 =====
+      // ===== Step 5: 竹芽进入"想"的状态（SDD §3：收到第一个 chunk 才变 writing）=====
+      ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.thinking;
 
-      ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.writing;
-
-      // ===== Step 6: 逐字接收 AI 输出，增量更新 UI =====
-      // 后端接口：message=当前消息，history=对话历史
+      // ===== Step 6: 逐字接收 AI 输出，第一个 chunk 到来时状态→writing =====
       String full = '';
+      bool _firstChunk = false;
       await for (final chunk in agnes.chatStream(
         message: userText,
         history: msgs,
         systemPrompt: effectiveSystem,
       )) {
-        full += chunk;  // 累加这个字
+        // 收到第一个字：从 thinking 切换到 writing
+        if (!_firstChunk) {
+          _firstChunk = true;
+          ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.writing;
+        }
+        full += chunk;
         ref.read(messagesProvider.notifier).updateMessage(aiMsgId, full);
         _scrollToBottom();
       }
