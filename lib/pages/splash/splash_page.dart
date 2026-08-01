@@ -1,7 +1,14 @@
-// Splash 启动页 - 竹芽人物动画版
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 启动页（Splash Page）
+//
+// 竹芽人物动画版：展示品牌 Logo + 竹芽人物 + 竹叶飘落动效
+// 动画结束或点击屏幕后自动跳转到对话页 /chat
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+/// 启动页 Widget：有状态，需要管理多个动画控制器
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
@@ -11,19 +18,19 @@ class SplashPage extends StatefulWidget {
 
 class _SplashPageState extends State<SplashPage>
     with TickerProviderStateMixin {
-  // 人物浮动动画
+  // 人物上下浮动动画控制器（呼吸感）
   late AnimationController _floatController;
   late Animation<double> _floatAnim;
 
-  // Logo 缩放动画
+  // Logo 整体缩放动画控制器（弹性放大）
   late AnimationController _scaleController;
   late Animation<double> _scaleAnim;
 
-  // 整体淡入
+  // 整体淡入动画控制器
   late AnimationController _fadeController;
   late Animation<double> _fadeAnim;
 
-  // 竹叶飘落动画
+  // 竹叶飘落动画控制器
   late AnimationController _leafController;
   late Animation<double> _leafAnim;
 
@@ -73,7 +80,8 @@ class _SplashPageState extends State<SplashPage>
     _fadeController.forward();
     _scaleController.forward();
 
-    // 2.5秒后跳主页
+    // 2.5 秒后自动跳转到对话页
+    // mounted 检查：防止页面已销毁时调用导航导致异常
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (mounted) context.go('/chat');
     });
@@ -90,6 +98,7 @@ class _SplashPageState extends State<SplashPage>
 
   @override
   Widget build(BuildContext context) {
+    // 根据当前主题亮度选择背景色
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -167,7 +176,7 @@ class _SplashPageState extends State<SplashPage>
                           ),
                           const SizedBox(height: 32),
 
-                          // 竹芽文字
+                          // 品牌名称 "竹  芽"（加宽字间距，营造书卷气）
                           Text(
                             '竹  芽',
                             style: TextStyle(
@@ -185,7 +194,7 @@ class _SplashPageState extends State<SplashPage>
                           ),
                           const SizedBox(height: 12),
 
-                          // Slogan
+                          // 品牌 Slogan
                           Text(
                             '情感陪伴 · 随时倾听',
                             style: TextStyle(
@@ -232,8 +241,10 @@ class _SplashPageState extends State<SplashPage>
   }
 }
 
-// 竹叶飘落动画画家
+/// 竹叶飘落动画画家
+/// 通过 CustomPainter 在背景上绘制动态飘落的竹叶
 class LeafPainter extends CustomPainter {
+  /// 动画进度，0.0 ~ 1.0 循环
   final double progress;
 
   LeafPainter(this.progress);
@@ -244,13 +255,17 @@ class LeafPainter extends CustomPainter {
       ..color = const Color(0xFF4CAF50).withValues(alpha: 0.15)
       ..style = PaintingStyle.fill;
 
-    // 画几片飘落的竹叶
+      // 绘制 5 片飘落的竹叶，每片有独立的起始位置、速度和旋转角度
     final leafCount = 5;
     for (int i = 0; i < leafCount; i++) {
+      // 起始水平位置均匀分布
       final startX = size.width * (0.1 + 0.2 * i);
+      // 垂直方向根据进度循环下落，每片有 0.2 的相位差
       final offset = ((progress + i * 0.2) % 1.0) * size.height;
+      // 左右轻微摆动，偶数片向右、奇数片向左
       final x = startX + (progress * 30 - 15) * (i % 2 == 0 ? 1 : -1);
       final y = offset;
+      // 旋转角度随进度增加，每片有基础旋转偏移
       final rotation = progress * 3.14 + i;
 
       canvas.save();
@@ -262,5 +277,6 @@ class LeafPainter extends CustomPainter {
   }
 
   @override
+  // 当动画进度变化时重绘
   bool shouldRepaint(covariant LeafPainter oldDelegate) => oldDelegate.progress != progress;
 }

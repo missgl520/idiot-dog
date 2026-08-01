@@ -1,9 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 应用根节点：定义应用名称、图标、主入口等 -->
     <application
         android:label="竹芽"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
+
+        <!-- 主 Activity：Flutter 界面渲染入口 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -13,34 +16,35 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
+
+            <!-- 启动主题：Flutter UI 初始化完成前用户看到的窗口背景主题 -->
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+
+            <!-- 声明该 Activity 为应用启动入口 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+
+        <!-- Flutter 嵌入版本声明，固定为 2；Flutter 工具会读取此值生成插件注册代码 -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <!-- 网络权限：用于访问 Agnes API、Cartesia TTS、ASR 等云服务 -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 录音权限：语音输入与 ASR 语音识别需要 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- 蓝牙权限：部分语音交互场景可能使用蓝牙耳机 -->
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+
+    <!-- 查询能够处理文本的 Activity，Flutter 文本处理插件会使用到 -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>

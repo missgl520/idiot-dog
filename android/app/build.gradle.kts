@@ -1,34 +1,41 @@
 plugins {
+    // Android 应用插件
     id("com.android.application")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    // Flutter Gradle 插件必须在 Android 和 Kotlin 插件之后应用
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
+    // 应用的命名空间，需与 AndroidManifest.xml 中的 package 保持一致
     namespace = "com.zhuyapp.zhuyapp"
+    // 编译 SDK 版本由 Flutter 工具自动提供
     compileSdk = flutter.compileSdkVersion
+    // NDK 版本由 Flutter 工具自动提供
     ndkVersion = flutter.ndkVersion
 
+    // Java 编译兼容性设置为 JDK 17
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // 应用唯一包名
         applicationId = "com.zhuyapp.zhuyapp"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 24  // flutter_live2d 需要 OpenGL ES 2.0，最低 Android 7.0
+        // 最低支持 Android 7.0（API 24）
+        // 原因：flutter_live2d 插件依赖 OpenGL ES 2.0，最低需要 Android 7.0
+        minSdk = 24
+        // 目标 SDK 版本由 Flutter 工具自动提供
         targetSdk = flutter.targetSdkVersion
+        // 版本号和版本名称由 Flutter 工具自动提供（来自 pubspec.yaml）
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // 发布构建目前使用 debug 签名配置，方便 `flutter run --release` 直接运行
+            // 正式上线前请替换为正式的 release 签名配置
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -36,10 +43,12 @@ android {
 
 kotlin {
     compilerOptions {
+        // Kotlin 编译目标 JVM 17，与 Java compileOptions 保持一致
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
 flutter {
+    // Flutter 项目根目录相对位置
     source = "../.."
 }

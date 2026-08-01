@@ -1,5 +1,7 @@
+# GitHub Actions 工作流：构建竹芽 Android APK
 name: Build APK
 
+# 触发条件：main 分支推送 或 手动触发
 on:
   push:
     branches: [main]
@@ -7,24 +9,29 @@ on:
 
 jobs:
   build:
+    # 在最新的 Ubuntu 运行器上执行
     runs-on: ubuntu-latest
 
     steps:
+      # 1. 检出仓库代码
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2. 安装 Flutter SDK
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.8'
           channel: 'stable'
 
+      # 3. 安装 JDK 17（Android 构建需要）
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
+      # 4. 缓存 Flutter 依赖（pub-cache），加速后续构建
       - name: Cache Flutter
         uses: actions/cache@v4
         with:
@@ -33,12 +40,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-flutter-
 
+      # 5. 拉取 Flutter 项目依赖
       - name: Get dependencies
         run: flutter pub get
 
+      # 6. 构建 Debug APK
       - name: Build debug APK
         run: flutter build apk --debug
 
+      # 7. 上传构建产物为 GitHub Actions Artifact，保留 7 天
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -46,6 +56,7 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 7
 
+      # 8. 手动触发时，创建 GitHub Release 并上传 APK
       - name: Create Release
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v1
