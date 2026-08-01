@@ -97,7 +97,7 @@ class CartesiaTtsService {
           ? {'text': text, 'emotion': emotion}
           : {'text': text, 'lang': 'zh-CN'};
 
-      final resp = await _dio.post<ResponseBody>(
+      final resp = await _dio.post(
         '$_baseUrl$endpoint',
         data: data,
         options: Options(
@@ -106,7 +106,7 @@ class CartesiaTtsService {
         ),
       );
 
-      final bytes = resp.data!.cast<int>().toList();
+      final bytes = (resp.data as List<int>).toList();
       print('[CartesiaTts] 收到音频: ${bytes.length} bytes');
 
       // 写入临时 mp3 文件，用 just_audio 播放
