@@ -12,7 +12,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import '../settings/settings_sheet.dart';
 import '../../providers/app_providers.dart';
 import '../../models/message.dart';
 import '../../widgets/live2d_controller.dart';
@@ -350,7 +350,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
           const SizedBox(width: 12),
           // 设置入口
           IconButton(
-            onPressed: () => context.push('/settings'),
+            onPressed: () => SettingsSheet.show(context),
             icon: Icon(
               Icons.settings_outlined,
               size: 22,
