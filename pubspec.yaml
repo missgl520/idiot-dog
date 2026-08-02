@@ -115,3 +115,10 @@ flutter:
   assets:
     # Live2D 模型资源目录
     - assets/live2d/
+    # Logo
+    - assets/logo.png
+    - assets/logo2.png
+    # 启动页人物
+    - assets/splash_char.png
+    - assets/splash_char2.png
+    - assets/splash_char_transparent.png
