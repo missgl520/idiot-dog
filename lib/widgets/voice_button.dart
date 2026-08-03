@@ -25,6 +25,7 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnim;
   bool _permissionGranted = false;
+  // ignore: unused_field
   String _lastRecognized = '';
 
   @override

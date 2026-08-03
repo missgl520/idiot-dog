@@ -121,7 +121,7 @@ class CartesiaTtsService {
     } finally {
       // 清理临时文件（稍后异步删）
       if (tempFile != null) {
-        tempFile.delete().catchError((_) {});
+        tempFile.delete().catchError((_) => File(""));
       }
       _isPlaying = false;
       onPlayingChanged?.call(false);

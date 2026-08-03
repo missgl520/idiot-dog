@@ -433,7 +433,8 @@ class _SwitchRow extends StatelessWidget {
         ),
         Switch(
           value: value,
-          activeColor: AppTheme.bamboo,
+          // ignore: deprecated_member_use
+  activeColor: AppTheme.bamboo,
           onChanged: onChanged,
         ),
       ],
