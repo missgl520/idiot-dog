@@ -15,12 +15,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/config.dart';
 import '../../core/services/backend_service.dart';
 import '../../providers/app_providers.dart';
 import '../voice/voice_call_page.dart';
 
-class MenuPanel extends ConsumerWidget {
+class MenuPanel extends ConsumerStatefulWidget {
   const MenuPanel({super.key});
+
+  @override
+  ConsumerState<MenuPanel> createState() => _MenuPanelState();
 
   static void show(BuildContext context) {
     showModalBottomSheet(
@@ -30,9 +34,11 @@ class MenuPanel extends ConsumerWidget {
       builder: (_) => const MenuPanel(),
     );
   }
+}
 
+class _MenuPanelState extends ConsumerState<MenuPanel> {
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final isDark = ref.watch(themeProvider);
     final affinity = ref.watch(affinityProvider);
     final currentEmotion = ref.watch(currentEmotionProvider);
@@ -89,8 +95,8 @@ class MenuPanel extends ConsumerWidget {
             _MenuTile(
               icon: Icons.record_voice_over,
               title: '唤醒词',
-              subtitle: '设置专属唤醒词（待实现）',
-              onTap: () => _showWakeWordHint(context),
+              subtitle: '设置专属唤醒词',
+              onTap: () => _showWakeWordEditor(context),
             ),
 
             // ── 实时语音通话 ──
@@ -144,20 +150,76 @@ class MenuPanel extends ConsumerWidget {
     );
   }
 
-  void _showWakeWordHint(BuildContext context) {
+  void _showWakeWordEditor(BuildContext context) {
+    final controller = TextEditingController(text: BackendConfig.instance.wakeWord);
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('唤醒词'),
-        content: const Text(
-          '唤醒词功能需要系统级权限。\n目前仅支持 App 内语音输入。\n\n未来版本计划支持：\n· 自定义唤醒词\n· 息屏唤醒\n· App 外唤起',
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.record_voice_over, color: AppTheme.bamboo, size: 20),
+            SizedBox(width: 8),
+            Text('唤醒词'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '说出唤醒词，竹芽就会回应你。',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: '唤醒词',
+                hintText: '例如：竹芽竹芽',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              maxLength: 20,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (v) => _saveWakeWord(ctx, controller.text, ctx),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '2-20字，中英文均可',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('好的'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => _saveWakeWord(ctx, controller.text, context),
+            child: const Text('保存'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _saveWakeWord(BuildContext dialogContext, String word, BuildContext scaffoldContext) {
+    final trimmed = word.trim();
+    if (trimmed.isEmpty) return;
+    // 存本地
+    BackendConfig.instance.setWakeWord(trimmed);
+    // 同步后端
+    BackendService.instance.syncWakeWord(trimmed);
+    // 关闭弹窗
+    Navigator.pop(dialogContext);
+    // 刷新菜单 UI
+    setState(() {});
+    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+      SnackBar(
+        content: Text('唤醒词已保存为：$trimmed'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
       ),
     );
   }

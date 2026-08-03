@@ -15,6 +15,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 
@@ -341,6 +342,23 @@ class BackendService {
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
     final summaries = data['summaries'] as List<dynamic>? ?? [];
     return summaries.cast<Map<String, dynamic>>();
+  }
+
+  // ━━━ 唤醒词同步 ━━━
+
+  /// 同步唤醒词到后端（更新后调用）
+  Future<void> syncWakeWord(String wakeWord) async {
+    final baseUrl = BackendConfig.instance.baseUrl;
+    try {
+      final resp = await http.patch(
+        Uri.parse('$baseUrl/config'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'wake_word': wakeWord}),
+      );
+      if (resp.statusCode != 200) {
+        debugPrint('[BackendService] syncWakeWord failed: ${resp.statusCode}');
+      }
+    } catch (_) {}
   }
 
   // ━━━ 健康检查 ━━━

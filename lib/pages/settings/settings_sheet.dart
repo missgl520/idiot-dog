@@ -15,6 +15,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/config.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/app_providers.dart';
@@ -345,7 +346,7 @@ class _VoiceContent extends StatelessWidget {
         children: [
           _InfoRow(icon: Icons.mic, text: '语音识别引擎', value: '系统默认'),
           const SizedBox(height: 8),
-          _InfoRow(icon: Icons.record_voice_over, text: '唤醒词', value: '竹芽竹芽'),
+          _InfoRow(icon: Icons.record_voice_over, text: '唤醒词', value: BackendConfig.instance.wakeWord),
         ],
       ),
     );

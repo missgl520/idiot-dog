@@ -24,4 +24,13 @@ class BackendConfig {
   void setBaseUrl(String url) {
     Hive.box('settings').put('backendUrl', url);
   }
+
+  /// 读取唤醒词（默认"竹芽竹芽"）
+  String get wakeWord =>
+      Hive.box('settings').get('wakeWord', defaultValue: '竹芽竹芽') as String;
+
+  /// 写入唤醒词
+  void setWakeWord(String word) {
+    Hive.box('settings').put('wakeWord', word);
+  }
 }
