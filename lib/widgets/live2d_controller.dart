@@ -39,16 +39,19 @@ class ZhuaLive2DController {
     return _viewController!;
   }
 
+  static const String _modelDir = 'assets/live2d/zhuyabudoll/';
+  static const String _modelFile = 'zhuyabudoll.model3.json';
+
   bool get modelLoaded => _modelLoaded;
 
-  /// 初始化并加载 Shizuku 模型
+  /// 初始化并加载竹芽 Live2D 模型
   Future<void> init() async {
     if (_modelLoaded) return;
     try {
       await viewController.whenAttached;
       final ok = await viewController.loadModel(
-        modelDir: 'assets/live2d/shizuku/',
-        modelFileName: 'shizuku.model.json',
+        modelDir: _modelDir,
+        modelFileName: _modelFile,
       );
       _modelLoaded = ok;
       if (ok) {

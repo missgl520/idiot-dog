@@ -114,7 +114,7 @@ flutter:
   # 项目静态资源目录
   assets:
     # Live2D 模型资源目录
-    - assets/live2d/
+    - assets/live2d/zhuyabudoll/
     # Logo
     - assets/logo.png
     - assets/logo2.png
