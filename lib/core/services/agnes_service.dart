@@ -1,16 +1,10 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 竹芽对话服务（直连 Agnes API，无需后端）
+// 竹芽对话服务（直连 Agnes API，【已废弃】）
 //
-// 支持：国际版 apihub.agnes-ai.com + 国内版 platform.agnes-ai.cn
-// 接口格式：OpenAI 兼容 /v1/chat/completions
-//
-// 直连模式：AgnesService 直接调 API，绕过后端
-// SSE 格式：data: {"choices":[{"delta":{"content":"字"}}]}\n\n
-//   data: [DONE]\n\n
-//
-// 注意：
-// - Agnes CN 仅限国内访问
-// - 竹芽记忆（sinomem）暂时不可用，待后续方案
+// 废弃说明（2026-08-03）：
+// 本服务绕过后端直连 Agnes API，记忆（RAG）功能从未生效。
+// 新代码请使用 BackendService（统一走 /chat/v2，后端处理 RAG + 情绪 + 好感度）。
+// 本类仅保留用于兼容旧代码，未来版本将删除。
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'dart:convert';

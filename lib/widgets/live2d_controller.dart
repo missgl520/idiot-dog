@@ -86,6 +86,34 @@ class ZhuaLive2DController {
     }
   }
 
+  /// 根据情绪标签切换 Live2D 表情（v1.3 新增）
+  ///
+  /// 情绪 → Live2D 表情索引映射：
+  ///   neutral   → 0（默认）
+  ///   happy     → 4（开心，f05）
+  ///   sad       → 5（难过，f06）
+  ///   angry     → 6（生气，f07）
+  ///   surprised → 7（惊讶，f08）
+  ///   anxious   → 8（焦虑，f09）
+  ///
+  /// 若模型没有那么多表情，则 fallback 到 idle 表情（0）
+  Future<void> setEmotion(String emotion) async {
+    if (!_modelLoaded) return;
+    final mapping = {
+      'happy':     4,
+      'sad':       5,
+      'angry':     6,
+      'surprised': 7,
+      'anxious':   8,
+    };
+    final idx = mapping[emotion] ?? 0;
+    try {
+      await viewController.setExpression(idx);
+    } catch (e) {
+      debugPrint('[ZhuaLive2D] 表情切换失败 ($emotion): $e');
+    }
+  }
+
   /// 点击竹芽身体：随机播放 tap_body 动画
   Future<void> playTap() async {
     if (!_modelLoaded) return;

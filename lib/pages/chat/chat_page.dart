@@ -13,6 +13,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../settings/settings_sheet.dart';
+import '../settings/menu_panel.dart';
+import '../../core/services/backend_service.dart';  // TextChunk/EmotionEvent/AffinityEvent/DoneEvent/ErrorEvent
 import '../../providers/app_providers.dart';
 import '../../models/message.dart';
 import '../../widgets/live2d_controller.dart';
@@ -113,10 +115,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
   // 触发时机：TextField 回车 / 点击发送图标
   void _send() {
     final text = _inputController.text.trim();
-    if (text.isEmpty) return;  // 空消息不发送
-
-    final agnes = ref.read(agnesServiceProvider);
-    final history = ref.read(messagesProvider);
+    if (text.isEmpty) return;
 
     // 1. 把用户"写"的信加入消息列表
     final userMsg = Message(
@@ -135,36 +134,29 @@ class _ChatPageState extends ConsumerState<ChatPage>
     // 3. 竹芽进入"想"的状态
     ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.thinking;
 
-    // 4. 调用 AI，开始对话
-    _chatWithAI(agnes, history, text);
+    // 4. 调用统一后端服务（/chat/v2），开始对话
+    _chatWithBackend(userMsg.id, text);
   }
 
-  // ━━━━━━━ AI 对话核心逻辑 ━━━━━━━
+  // ━━━━━━━ AI 对话核心逻辑（统一后端版 v1.3）━━━━━━━
   // 完整流程：
-  //   构建上下文 → 调流式 API → 增量更新 UI → 存记忆 → TTS 播报 → 恢复 idle
-  Future<void> _chatWithAI(
-    dynamic agnes,          // AgnesService 实例
-    List<Message> history,  // 当前对话历史
-    String userText,        // 用户刚发的消息
+  //   发消息 → /chat/v2 流式返回
+  //   → 增量更新 UI → 情绪/好感度事件 → 存记忆（后端处理）
+  //   → TTS 播报 → 恢复 idle
+  Future<void> _chatWithBackend(
+    String userMsgId,
+    String userText,
   ) async {
     try {
-      // ===== Step 1: 构建长期记忆上下文（SinoMem）=====
-      final memory = ref.read(memoryServiceProvider);
-      final memoryCtx = await memory.buildContext(userText);
-
-      // ===== Step 2: System Prompt — 竹芽的人设定义 =====
+      // ===== Step 1: System Prompt — 竹芽的人设定义 =====
       const systemPrompt = '''你是竹芽，一个温柔的情感陪伴者。
 你正在陪伴一个人聊天。你不着急，不刷屏，不给建议除非对方真的需要。
 你的回复像手写的信，有呼吸感，有停顿，不是聊天消息。
 你可以沉默，可以问一句不急着回答的问题，可以不接话茬。
 保持真诚，不需要总是正能量。''';
 
-      // 如果有记忆上下文，追加到 System Prompt 后面
-      final effectiveSystem = memoryCtx.isNotEmpty
-          ? '$systemPrompt\n$memoryCtx'
-          : systemPrompt;
-
-      // ===== Step 3: 限长 history，最多传最近 10 条（SDD §5）=====
+      // ===== Step 2: 限长 history（最多传最近 10 条）=====
+      final history = ref.read(messagesProvider);
       final msgs = (history.length > 10
           ? history.sublist(history.length - 10)
           : history).map((m) => {
@@ -172,8 +164,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
         'content': m.content,
       }).toList();
 
-      // ===== Step 4: 先占位一个空的 AI 消息 =====
-      // isStreaming=true 告诉 UI：这条消息还在输出中（显示光标）
+      // ===== Step 3: 先占位一个空的 AI 消息 =====
       final aiMsgId = (DateTime.now().millisecondsSinceEpoch + 1).toString();
       final aiMsg = Message(
         id: aiMsgId,
@@ -184,70 +175,112 @@ class _ChatPageState extends ConsumerState<ChatPage>
       );
       ref.read(messagesProvider.notifier).addMessage(aiMsg);
 
-      // ===== Step 5: 竹芽进入"想"的状态（SDD §3：收到第一个 chunk 才变 writing）=====
+      // ===== Step 4: 竹芽进入"想"的状态 =====
       ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.thinking;
 
-      // ===== Step 6: 逐字接收 AI 输出，第一个 chunk 到来时状态→writing =====
+      // ===== Step 5: 调用统一后端（/chat/v2）=====
+      // RAG 记忆召回 + Agnes 对话 + 情绪识别 + 好感度更新，全在后端一次搞定
+      final backend = ref.read(backendServiceProvider);
       String full = '';
       bool _firstChunk = false;
-      await for (final chunk in agnes.chatStream(
+
+      await for (final event in backend.chatStream(
         message: userText,
         history: msgs,
-        systemPrompt: effectiveSystem,
+        systemPrompt: systemPrompt,
+        onEmotion: (emotion) {
+          // 情绪事件：更新 provider，驱动 Live2D 表情
+          ref.read(currentEmotionProvider.notifier).state = emotion;
+          ref.read(emotionHistoryProvider.notifier).add(emotion);
+          _syncLive2DEmotion(emotion.emotion);
+        },
+        onAffinity: (affinity) {
+          // 好感度事件：直接更新 provider
+          ref.read(affinityProvider.notifier).updateFromBackend(affinity);
+        },
       )) {
-        // 收到第一个字：从 thinking 切换到 writing
-        if (!_firstChunk) {
-          _firstChunk = true;
-          ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.writing;
+        switch (event) {
+          case TextChunk(:final text):
+            if (!_firstChunk) {
+              _firstChunk = true;
+              ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.writing;
+            }
+            full += text;
+            ref.read(messagesProvider.notifier).updateMessage(aiMsgId, full);
+            _scrollToBottom();
+
+          case EmotionEvent():
+            // 已通过回调处理
+            break;
+
+          case AffinityEvent():
+            // 已通过回调处理
+            break;
+
+          case DoneEvent():
+            break;
+
+          case ErrorEvent(:final message):
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('竹芽走神了: $message')),
+              );
+            }
         }
-        full += chunk;
-        ref.read(messagesProvider.notifier).updateMessage(aiMsgId, full);
-        _scrollToBottom();
       }
 
-      // ===== Step 7: 流式输出结束，关闭光标 =====
+      // ===== Step 6: 流式输出结束，关闭光标 =====
       ref.read(messagesProvider.notifier).updateMessage(aiMsgId, full, isStreaming: false);
 
-      // ===== Step 8: 存入长期记忆 =====
-      if (full.isNotEmpty) {
-        await memory.store('$userText || $full', category: 'chat_memory');
-      }
-
-      // ===== Step 9: TTS 语音播报（如果开关打开）=====
+      // ===== Step 7: TTS 语音播报（如果开关打开）=====
       final ttsOn = ref.read(ttsEnabledProvider);
-      if (ttsOn) {
+      if (ttsOn && full.isNotEmpty) {
         ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.speaking;
 
-        // 优先：Cartesia API TTS（自然音色 + 情感）
         final ttsMode = ref.read(ttsModeProvider);
         if (ttsMode == 'cartesia') {
           try {
             final cartesiaTts = ref.read(cartesiaTtsServiceProvider);
             await cartesiaTts.speak(full);
           } catch (e) {
-            // Cartesia 失败，降级到系统 TTS
-            print('[Chat] Cartesia TTS 失败，降级: $e');
             final tts = ref.read(ttsServiceProvider);
             await tts.speak(full);
           }
         } else {
-          // 系统 TTS（flutter_tts）
           final tts = ref.read(ttsServiceProvider);
           await tts.speak(full);
         }
       }
 
-      // ===== Step 10: 回到空闲状态 =====
+      // ===== Step 8: 回到空闲状态 =====
       ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.idle;
 
     } catch (e) {
-      // 异常处理：无论哪里出错，都要回到 idle 并提示用户
       ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.idle;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('竹芽走神了: $e')),
         );
       }
+    }
+  }
+
+  // ━━━━━━━ 情绪 → Live2D 表情映射 ━━━━━━━
+  void _syncLive2DEmotion(String emotion) {
+    final ctrl = ref.read(live2dControllerProvider);
+    switch (emotion) {
+      case 'happy':
+        ctrl.setEmotion('happy');
+      case 'sad':
+        ctrl.setEmotion('sad');
+      case 'angry':
+        ctrl.setEmotion('angry');
+      case 'surprised':
+        ctrl.setEmotion('surprised');
+      case 'anxious':
+        ctrl.setEmotion('anxious');
+      default:
+        ctrl.setEmotion('neutral');
     }
   }
 
@@ -335,13 +368,27 @@ class _ChatPageState extends ConsumerState<ChatPage>
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
-          Text(
-            '竹芽',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-              letterSpacing: 2,
+          // Logo / 竹芽名字（点击 → 菜单页面）
+          GestureDetector(
+            onTap: () => MenuPanel.show(context),
+            child: Row(
+              children: [
+                Text(
+                  '竹芽',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.menu,  // 小箭头，暗示可点击
+                  size: 14,
+                  color: Colors.grey.shade400,
+                ),
+              ],
             ),
           ),
           const Spacer(),

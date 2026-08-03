@@ -22,6 +22,7 @@ class AppTheme {
   static const Color bamboo      = Color(0xFF6B9E78);  // 竹绿 - 主色
   static const Color bambooLight = Color(0xFFA8C5AB);  // 浅竹绿
   static const Color bambooDark  = Color(0xFF4A7055);  // 深竹绿
+  static const Color warmYellow = Color(0xFFFFD54F);  // 暖黄 - 强调色（设计规范 #FFD54F）
   static const Color paper       = Color(0xFFFAF8F5);  // 宣纸白 - 亮色背景
   static const Color paperDark   = Color(0xFF1A1A1A);  // 深色背景
   static const Color ink         = Color(0xFF2C2C2C);  // 墨色 - 亮色正文

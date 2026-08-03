@@ -9,6 +9,9 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import '../core/services/backend_service.dart';
 import '../core/services/agnes_service.dart';
 import '../core/services/tts_service.dart';
 import '../core/services/cartesia_tts_service.dart';
@@ -18,22 +21,8 @@ import '../models/message.dart';
 import '../widgets/live2d_controller.dart';
 
 // ━━━━━━━━━━━━━━━ 后端地址配置 ━━━━━━━━━━━━━━━
-
-/// 后端地址单例（全局共享，App 生命周期内唯一）
-class BackendConfig {
-  BackendConfig._();
-  static final BackendConfig _instance = BackendConfig._();
-  static BackendConfig get instance => _instance;
-
-  /// 读取当前后端地址（默认 http://localhost:8000）
-  String get baseUrl =>
-      Hive.box('settings').get('backendUrl', defaultValue: 'http://localhost:8000') as String;
-
-  /// 写入后端地址
-  void setBaseUrl(String url) {
-    Hive.box('settings').put('backendUrl', url);
-  }
-}
+import '../core/config.dart';  // BackendConfig 单例
+export '../core/config.dart' show BackendConfig;  // 导出给其他文件用
 
 // ━━━━━━━━━━━━━━━ 主题 ━━━━━━━━━━━━━━━
 
@@ -62,8 +51,14 @@ class ThemeNotifier extends StateNotifier<bool> {
 
 // ━━━━━━━━━━━━━━━ Services（只读） ━━━━━━━━━━━━━━━
 
-/// AI 对话服务（Agnes / 小米小猫）
-/// 负责：流式返回 / System Prompt / API 调用
+/// 统一后端服务（v1.3，对话 + 记忆召回 + 情绪 + 好感度）
+/// 统一走后端 RAG 流程，SinoMem 生效
+final backendServiceProvider = Provider<BackendService>((ref) {
+  return BackendService.instance;
+});
+
+/// AI 对话服务（Agnes / 直连模式，已废弃，请用 backendServiceProvider）
+/// ⚠️ 保留仅用于兼容旧代码，新代码一律用 backendServiceProvider
 final agnesServiceProvider = Provider<AgnesService>((ref) {
   return AgnesService.instance;
 });
@@ -225,3 +220,44 @@ final asrResultProvider = StateProvider<String?>((ref) => null);
 final live2dControllerProvider = Provider<ZhuaLive2DController>((ref) {
   return ZhuaLive2DController.instance;
 });
+
+// ━━━━━━━━━━━━━━━ 情绪识别 ━━━━━━━━━━━━━━━
+
+/// 当前情绪 Provider（对话结束后从后端更新）
+/// 情绪 → 驱动 Live2D 表情切换
+final currentEmotionProvider = StateProvider<EmotionResult?>((ref) => null);
+
+/// 情绪历史（最近 N 条，用于统计）
+final emotionHistoryProvider = StateNotifierProvider<EmotionHistoryNotifier, List<EmotionResult>>((ref) {
+  return EmotionHistoryNotifier();
+});
+
+class EmotionHistoryNotifier extends StateNotifier<List<EmotionResult>> {
+  EmotionHistoryNotifier() : super([]);
+
+  void add(EmotionResult emotion) {
+    state = [...state, emotion].take(50).toList();
+  }
+
+  void clear() => state = [];
+}
+
+// ━━━━━━━━━━━━━━━ 好感度系统 ━━━━━━━━━━━━━━━
+
+/// 好感度数据 Provider
+/// 由后端 /affinity 接口驱动
+final affinityProvider = StateNotifierProvider<AffinityNotifier, AffinityData>((ref) {
+  return AffinityNotifier();
+});
+
+class AffinityNotifier extends StateNotifier<AffinityData> {
+  AffinityNotifier() : super(AffinityData());
+
+  void updateFromBackend(AffinityData data) {
+    state = data;
+  }
+
+  void reset() {
+    state = AffinityData();
+  }
+}
