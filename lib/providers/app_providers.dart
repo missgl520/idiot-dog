@@ -9,8 +9,6 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import '../core/services/backend_service.dart';
 import '../core/services/agnes_service.dart';
 import '../core/services/tts_service.dart';
@@ -21,7 +19,6 @@ import '../models/message.dart';
 import '../widgets/live2d_controller.dart';
 
 // ━━━━━━━━━━━━━━━ 后端地址配置 ━━━━━━━━━━━━━━━
-import '../core/config.dart';  // BackendConfig 单例
 export '../core/config.dart' show BackendConfig;  // 导出给其他文件用
 
 // ━━━━━━━━━━━━━━━ 主题 ━━━━━━━━━━━━━━━

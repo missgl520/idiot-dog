@@ -265,18 +265,10 @@ class MenuPanel extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              try {
-                final baseUrl = BackendConfig.instance.baseUrl;
-                await ref.read(backendServiceProvider).chatStream(
-                  message: '__clear_memory__',
-                  history: [],
-                );
+              final ok = await ref.read(backendServiceProvider).clearMemory();
+              if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('记忆已清空')),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('清空失败: $e')),
+                  SnackBar(content: Text(ok ? '记忆已清空' : '清空失败')),
                 );
               }
             },

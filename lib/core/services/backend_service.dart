@@ -302,6 +302,19 @@ class BackendService {
     await http.put(Uri.parse('$baseUrl/affinity?action=reset'));
   }
 
+  /// 清空对话记忆（调用后端 DELETE /memory）
+  Future<bool> clearMemory({String category = 'chat_memory'}) async {
+    final baseUrl = BackendConfig.instance.baseUrl;
+    try {
+      final resp = await http.delete(
+        Uri.parse('$baseUrl/memory?category=$category'),
+      );
+      return resp.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 获取关系等级描述
   Future<String> getAffinityLevel() async {
     final baseUrl = BackendConfig.instance.baseUrl;
