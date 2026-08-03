@@ -15,8 +15,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/services/backend_service.dart';  // AffinityData / EmotionResult
+import '../../core/services/backend_service.dart';
 import '../../providers/app_providers.dart';
+import '../voice/voice_call_page.dart';
 
 class MenuPanel extends ConsumerWidget {
   const MenuPanel({super.key});
@@ -90,6 +91,17 @@ class MenuPanel extends ConsumerWidget {
               title: '唤醒词',
               subtitle: '设置专属唤醒词（待实现）',
               onTap: () => _showWakeWordHint(context),
+            ),
+
+            // ── 实时语音通话 ──
+            _MenuTile(
+              icon: Icons.phone_in_talk,
+              title: '语音通话',
+              subtitle: '实时语音对话',
+              onTap: () {
+                Navigator.of(context).pop();
+                VoiceCallPage.show(context);
+              },
             ),
 
             // ── 记忆管理 ──

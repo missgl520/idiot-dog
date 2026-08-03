@@ -182,7 +182,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
       // RAG 记忆召回 + Agnes 对话 + 情绪识别 + 好感度更新，全在后端一次搞定
       final backend = ref.read(backendServiceProvider);
       String full = '';
-      bool _firstChunk = false;
+      bool firstChunk = false;
 
       await for (final event in backend.chatStream(
         message: userText,
@@ -201,8 +201,8 @@ class _ChatPageState extends ConsumerState<ChatPage>
       )) {
         switch (event) {
           case TextChunk(:final text):
-            if (!_firstChunk) {
-              _firstChunk = true;
+            if (!firstChunk) {
+              firstChunk = true;
               ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.writing;
             }
             full += text;
@@ -577,7 +577,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                   // 发送按钮（有文字时才显示）
                   ListenableBuilder(
                     listenable: _inputController,
-                    builder: (_, __) {
+                    builder: (_, _) {
                       final hasText = _inputController.text.trim().isNotEmpty;
                       return !isWorking && hasText
                           ? IconButton(
@@ -661,7 +661,7 @@ class _LetterEntry extends StatelessWidget {
           const SizedBox(height: 6),
 
           // 消息内容
-          // AI 消息有左侧竖线装饰（模拟引用）
+          // AI 消息有左侧虚线竖线装饰（模拟手写引用线）
           Container(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.72,
@@ -671,8 +671,9 @@ class _LetterEntry extends StatelessWidget {
                 : BoxDecoration(
                     border: Border(
                       left: BorderSide(
-                        color: const Color(0xFF6B9E78).withValues(alpha: 0.2),
-                        width: 2,
+                        color: const Color(0xFF6B9E78).withValues(alpha: 0.28),
+                        width: 1.5,
+                        strokeAlign: BorderSide.strokeAlignInside,
                       ),
                     ),
                   ),

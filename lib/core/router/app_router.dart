@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../pages/splash/splash_page.dart';
 import '../../pages/chat/chat_page.dart';
+import '../../pages/voice/voice_call_page.dart';
 
 /// GoRouter 实例 Provider
 /// main.dart 用 ref.watch(routerProvider) 注入到 MaterialApp.router
@@ -49,6 +50,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             );
           },
         ),
+      ),
+      // 实时语音通话页（全屏覆盖）
+      GoRoute(
+        path: '/voice-call',
+        name: 'voice-call',
+        builder: (context, state) => const VoiceCallPage(),
       ),
     ],
   );
