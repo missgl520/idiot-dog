@@ -116,10 +116,10 @@ flutter:
   assets:
     # Live2D 模型资源目录
     - assets/live2d/zhuyabudoll/
-    # Logo
+    # 全局 Logo 竹子图案（v1.9）
     - assets/logo.png
-    - assets/logo2.png
-    # 启动页人物
+    - assets/logo/
+    # 启动页人物（旧保留）
     - assets/splash_char.png
     - assets/splash_char2.png
     - assets/splash_char_transparent.png
