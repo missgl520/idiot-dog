@@ -3,20 +3,26 @@
 //
 // 职责：
 // - 实现 domain 层定义的接口
-// - 协调多个 DataSource
-// - 做必要的 DTO → Entity 转换
+// - 协调 Service，构造领域语义
+// - DTO 转换已在 Service 层完成，这里只做路由
+//
+// Repository 接口契约（domain 层）：
+//   "我要一个对话流" / "我要好感度" / "我要清记忆"
+// Service 实现细节（data 层）：
+//   "怎么构造请求、怎么解析 SSE、怎么转 Entity"
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'dart:async';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/chat_repository.dart';
-import '../datasources/backend_api.dart';
+import '../services/chat_service.dart';
 
 /// 对话仓库实现
+/// 只负责"要什么"，不问"怎么拿"
 class ChatRepositoryImpl implements ChatRepository {
-  final BackendApiDataSource _api;
+  final ChatService _service;
 
-  ChatRepositoryImpl(this._api);
+  ChatRepositoryImpl(this._service);
 
   @override
   Stream<ChatEvent> sendMessage({
@@ -24,7 +30,7 @@ class ChatRepositoryImpl implements ChatRepository {
     required List<Message> history,
     String? systemPrompt,
   }) {
-    return _api.chatStream(
+    return _service.sendMessageStream(
       message: message,
       history: history,
       systemPrompt: systemPrompt,
@@ -32,15 +38,15 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<Affinity> getAffinity() => _api.fetchAffinity();
+  Future<Affinity> getAffinity() => _service.getAffinity();
 
   @override
-  Future<void> resetAffinity() => _api.resetAffinity();
+  Future<void> resetAffinity() => _service.resetAffinity();
 
   @override
   Future<bool> clearMemory({String category = 'chat_memory'}) =>
-      _api.clearMemory(category: category);
+      _service.clearMemory(category: category);
 
   @override
-  Future<bool> isOnline() => _api.isOnline();
+  Future<bool> isOnline() => _service.isOnline();
 }

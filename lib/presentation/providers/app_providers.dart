@@ -5,29 +5,29 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/datasources/backend_api.dart';
+import '../../data/services/chat_service.dart';
 import '../../data/repositories/chat_repository_impl.dart';
 import '../../domain/repositories/chat_repository.dart';
 
-// ━━━ DataSource ━━━
+// ━━━ DataSource / Service ━━━
 
-/// 后端 API 数据源（单例）
-final backendApiProvider = Provider<BackendApiDataSource>((ref) {
-  return BackendApiDataSource();
+/// 聊天服务（封装"怎么拿"）
+final chatServiceProvider = Provider<ChatService>((ref) {
+  return ChatService();
 });
 
 // ━━━ Repository ━━━
 
-/// 对话仓库（依赖 DataSource）
+/// 对话仓库（只管"要什么"，调 Service）
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
-  final api = ref.watch(backendApiProvider);
-  return ChatRepositoryImpl(api);
+  final service = ref.watch(chatServiceProvider);
+  return ChatRepositoryImpl(service);
 });
 
 // ━━━ 后端状态 ━━━
 
 /// 后端是否在线
 final backendOnlineProvider = FutureProvider<bool>((ref) async {
-  final api = ref.read(backendApiProvider);
-  return api.isOnline();
+  final service = ref.read(chatServiceProvider);
+  return service.isOnline();
 });
