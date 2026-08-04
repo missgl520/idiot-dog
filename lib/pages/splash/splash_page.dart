@@ -1,7 +1,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 启动页（Splash Page）
 //
-// 竹芽人物动画版：展示品牌 Logo + 竹芽人物 + 竹叶飘落动效
+// 竹子 Logo + 品牌名 + 竹叶飘落动效
 // 动画结束或点击屏幕后自动跳转到对话页 /chat
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -159,16 +159,17 @@ class _SplashPageState extends State<SplashPage>
                                 borderRadius: BorderRadius.circular(40),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
-                                    blurRadius: 30,
-                                    offset: const Offset(0, 15),
+                                    color: const Color(0xFF6B9E78).withValues(alpha: 0.4),
+                                    blurRadius: 40,
+                                    offset: const Offset(0, 20),
                                   ),
                                 ],
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(40),
+                                // 全局 Logo 竹子图案（v1.9）
                                 child: Image.asset(
-                                  'assets/splash_char_transparent.png',
+                                  'assets/logo.png',
                                   fit: BoxFit.contain,
                                 ),
                               ),
@@ -182,11 +183,11 @@ class _SplashPageState extends State<SplashPage>
                             style: TextStyle(
                               fontSize: 36,
                               fontWeight: FontWeight.w800,
-                              color: const Color(0xFF4CAF50),
+                              color: const Color(0xFF6B9E78),
                               letterSpacing: 12,
                               shadows: [
                                 Shadow(
-                                  color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+                                  color: const Color(0xFF6B9E78).withValues(alpha: 0.3),
                                   blurRadius: 20,
                                 ),
                               ],
