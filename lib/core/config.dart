@@ -16,9 +16,9 @@ class BackendConfig {
   static final BackendConfig _instance = BackendConfig._();
   static BackendConfig get instance => _instance;
 
-  /// 读取当前后端地址（默认 http://localhost:8000）
+  /// 读取当前后端地址（默认穿透地址，生产环境用）
   String get baseUrl =>
-      Hive.box('settings').get('backendUrl', defaultValue: 'http://localhost:8000') as String;
+      Hive.box('settings').get('backendUrl', defaultValue: 'https://chilly-sloths-jump.loca.lt') as String;
 
   /// 写入后端地址
   void setBaseUrl(String url) {
