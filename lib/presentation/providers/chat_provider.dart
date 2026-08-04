@@ -198,14 +198,45 @@ class ChatNotifier extends StateNotifier<ChatNotifierState> {
     _ref.read(conversationStatusProvider.notifier).state =
         ConversationStatus.speaking;
 
-    // TODO: 触发 TTS 播放（待接入 Cartesia）
-    Future.delayed(const Duration(seconds: 3), () {
-      final current = _ref.read(conversationStatusProvider);
-      if (current == ConversationStatus.speaking) {
-        _ref.read(conversationStatusProvider.notifier).state =
-            ConversationStatus.idle;
-      }
-    });
+    // 触发 TTS 播放
+    _playTts();
+  }
+
+  Future<void> _playTts() async {
+    final ttsEnabled = _ref.read(ttsEnabledProvider);
+    if (!ttsEnabled) {
+      _ref.read(conversationStatusProvider.notifier).state =
+          ConversationStatus.idle;
+      return;
+    }
+
+    // 取最后一条 AI 回复
+    final msgs = state.messages;
+    final lastMsg = msgs.isNotEmpty ? msgs.last : null;
+    if (lastMsg == null || lastMsg.role != 'assistant') {
+      _ref.read(conversationStatusProvider.notifier).state =
+          ConversationStatus.idle;
+      return;
+    }
+
+    final tts = _ref.read(cartesiaTtsServiceProvider);
+    await tts.init(baseUrl: null); // 使用 CartesiaService 默认地址
+
+    // 绑定 LipSync → 播放器，唇形自动跟随 TTS 播放状态
+    final lipSync = _ref.read(lipSyncServiceProvider);
+    lipSync.bind(tts.player);
+
+    try {
+      await tts.speak(lastMsg.content);
+    } catch (e) {
+      // TTS 失败不阻塞对话
+    }
+
+    final current = _ref.read(conversationStatusProvider);
+    if (current == ConversationStatus.speaking) {
+      _ref.read(conversationStatusProvider.notifier).state =
+          ConversationStatus.idle;
+    }
   }
 
   void _onError(String message) {

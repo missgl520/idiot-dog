@@ -137,7 +137,7 @@ class BackendService {
   /// [onEmotion] 情绪识别回调（对话结束时触发）
   /// [onAffinity] 好感度更新回调（对话结束时触发）
   ///
-  /// Returns: Stream<ChatEvent>
+  /// Returns: Stream`ChatEvent`
   Stream<ChatEvent> chatStream({
     required String message,
     List<Map<String, String>> history = const [],

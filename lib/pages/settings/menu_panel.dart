@@ -15,7 +15,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/config.dart';
 import '../../core/services/backend_service.dart';
 import '../../providers/app_providers.dart';
 import '../voice/voice_call_page.dart';

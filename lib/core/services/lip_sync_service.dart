@@ -27,6 +27,12 @@ class LipSyncService {
   /// 口型更新回调（每次口型值变化时调用，参数为当前开度 0~1）
   void Function(double)? onMouthUpdated;
 
+  /// 口型值流（供 Riverpod/StreamBuilder 监听）
+  final _mouthStreamController = StreamController<double>.broadcast();
+
+  /// 口型值变化流
+  Stream<double> get mouthStream => _mouthStreamController.stream;
+
   /// 说话中
   bool _isTalking = false;
 
@@ -110,6 +116,7 @@ class LipSyncService {
           : math.sin(_phase % (2 * math.pi)).abs();
       _mouthOpen = _minMouth + sinVal * (_maxMouth - _minMouth);
       onMouthUpdated?.call(_mouthOpen);
+      _mouthStreamController.add(_mouthOpen);
     });
   }
 
@@ -119,5 +126,6 @@ class LipSyncService {
     _stateSub?.cancel();
     _positionSub = null;
     _stateSub = null;
+    _mouthStreamController.close();
   }
 }

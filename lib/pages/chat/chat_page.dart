@@ -14,6 +14,7 @@ import '../settings/menu_panel.dart';
 import '../../models/message.dart' as old_msg;
 import '../../providers/app_providers.dart' as old_providers;
 import '../../domain/entities/entities.dart' as entities;
+import '../../presentation/providers/app_providers.dart' as new_providers;
 import '../../presentation/providers/chat_provider.dart';
 import '../../widgets/live2d_controller.dart';
 import '../../widgets/live2d_widget.dart';
@@ -189,9 +190,17 @@ class _ChatPageState extends ConsumerState<ChatPage>
                         builder: (context, ref, _) {
                           final l2dCtrl =
                               ref.watch(old_providers.live2dControllerProvider);
+                          final lipSync =
+                              ref.watch(new_providers.lipSyncStreamProvider);
+                          lipSync.whenData((mouth) {
+                            l2dCtrl.viewController.setParameter(
+                              'ParamMouthOpenY',
+                              mouth.clamp(0.0, 0.75),
+                            );
+                          });
                           return ZhuaLive2DWidget(
                             controller: l2dCtrl.viewController,
-                            onTap: () {}, // Widget 内部已处理触摸，保留回调用于未来扩展
+                            onTap: () {},
                           );
                         },
                       ),

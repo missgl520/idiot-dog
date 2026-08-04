@@ -62,13 +62,11 @@ class CartesiaTtsService {
 
     _isInitialized = true;
 
-    // 验证后端连通性
+    // 验证后端连通性（静默，不影响主流程）
     try {
-      final resp = await _dio.get('$_baseUrl/health');
-      print('[CartesiaTts] 后端连通: ${resp.data}');
-    } on DioException catch (e) {
-      print('[CartesiaTts] 后端连通失败: $e');
-      print('[CartesiaTts] 请确认后端已启动且地址正确: $_baseUrl');
+      await _dio.get('$_baseUrl/health');
+    } on DioException {
+      // 后端不可达，静默跳过，降级到本地 TTS
     }
   }
 
@@ -110,7 +108,6 @@ class CartesiaTtsService {
       );
 
       final bytes = (resp.data as List<int>).toList();
-      print('[CartesiaTts] 收到音频: ${bytes.length} bytes');
 
       // 写入临时 mp3 文件，用 just_audio 播放
       final tmpDir = await getTemporaryDirectory();
@@ -119,8 +116,8 @@ class CartesiaTtsService {
 
       await _player.setFilePath(tempFile.path);
       await _player.play();
-    } on DioException catch (e) {
-      print('[CartesiaTts] 请求失败: $e');
+    } on DioException {
+      // TTS 请求失败，降级处理（静默）
     } finally {
       // 清理临时文件（稍后异步删）
       if (tempFile != null) {
