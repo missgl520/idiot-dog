@@ -3,18 +3,23 @@
 //
 // 集成 flutter_live2d，接 Atago 模型（碧蓝航线）
 //
+// 触摸交互（v1.9 新增）：
+//   单击上半区（头/脸） → 随机表情变化
+//   单击下半区（身体） → 摇晃动画
+//   双击任意位置       → 害羞脸红彩蛋
+//
 // 竹芽状态 → 动画映射：
 //   idle        → idle 待机动画（循环）+ f01 表情
 //   thinking    → f02 表情（等 AI 回复）
 //   speaking    → tap_body 动画 + f03 表情（竹芽在说话）
 //   listening   → f04 表情（用户在说话，竹芽专注）
-//   点击身体    → 触发摇晃动画（tap_body）
 //
-// 模型：assets/live2d/shizuku/
+// 模型：assets/live2d/zhuyabudoll/
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'package:flutter/material.dart';
 import 'package:flutter_live2d/flutter_live2d.dart';
+import 'live2d_controller.dart';
 
 /// 竹芽 Live2D 虚拟角色 Widget
 ///
@@ -22,8 +27,10 @@ import 'package:flutter_live2d/flutter_live2d.dart';
 ///   final controller = ref.read(live2dControllerProvider);
 ///   ZhuaLive2DWidget(controller: controller.viewController)
 ///
-/// 模型加载中 / 失败 → 显示加载动画兜底
-class ZhuaLive2DWidget extends StatelessWidget {
+/// 触摸交互（v1.9）：
+///   onSingleTapUp → handleTouch 按位置分区反应
+///   onDoubleTap   → playDoubleTap 害羞彩蛋
+class ZhuaLive2DWidget extends StatefulWidget {
   final Live2DViewController controller;
   final VoidCallback? onTap;
 
@@ -34,18 +41,69 @@ class ZhuaLive2DWidget extends StatelessWidget {
   });
 
   @override
+  State<ZhuaLive2DWidget> createState() => _ZhuaLive2DWidgetState();
+}
+
+class _ZhuaLive2DWidgetState extends State<ZhuaLive2DWidget> {
+  /// 双击间隔阈值（毫秒）
+  static const _doubleTapTimeout = Duration(milliseconds: 300);
+
+  DateTime? _lastTapTime;
+
+  /// 处理单击：按位置分区触发反应
+  void _handleSingleTap(TapUpDetails details) {
+    final size = context.size ?? const Size(120, 200);
+    ZhuaLive2DController.instance.handleTouch(
+      details.localPosition,
+      size,
+    );
+    widget.onTap?.call();
+  }
+
+  /// 处理双击：害羞彩蛋
+  void _handleDoubleTap() {
+    ZhuaLive2DController.instance.playDoubleTap();
+    widget.onTap?.call();
+  }
+
+  /// GestureDetector 单击回调（含双击拦截）
+  void _onTapUp(TapUpDetails details) {
+    final now = DateTime.now();
+    if (_lastTapTime != null &&
+        now.difference(_lastTapTime!) < _doubleTapTimeout) {
+      // 是双击
+      _lastTapTime = null;
+      _handleDoubleTap();
+    } else {
+      // 是单击，延迟触发（等一下看有没有第二次点击）
+      _lastTapTime = now;
+      Future.delayed(_doubleTapTimeout, () {
+        if (_lastTapTime != null &&
+            DateTime.now().difference(_lastTapTime!) >= _doubleTapTimeout) {
+          _handleSingleTap(details);
+          _lastTapTime = null;
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: ValueListenableBuilder<Live2DViewState>(
-        valueListenable: controller,
-        builder: (context, state, _) {
-          if (!state.isAttached || state.loadedModel == null) {
-            return const _ModelLoadingPlaceholder();
-          }
-          return const Live2DView(controller: null);
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          onTapUp: _onTapUp,
+          child: ValueListenableBuilder<Live2DViewState>(
+            valueListenable: widget.controller,
+            builder: (context, state, _) {
+              if (!state.isAttached || state.loadedModel == null) {
+                return const _ModelLoadingPlaceholder();
+              }
+              return const Live2DView(controller: null);
+            },
+          ),
+        );
+      },
     );
   }
 }

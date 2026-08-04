@@ -191,7 +191,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                               ref.watch(old_providers.live2dControllerProvider);
                           return ZhuaLive2DWidget(
                             controller: l2dCtrl.viewController,
-                            onTap: () => l2dCtrl.playTap(),
+                            onTap: () {}, // Widget 内部已处理触摸，保留回调用于未来扩展
                           );
                         },
                       ),
