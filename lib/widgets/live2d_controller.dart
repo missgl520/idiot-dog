@@ -72,6 +72,8 @@ class ZhuaLive2DController {
         case ZhuaLive2DStatus.idle:
           await viewController.setExpression(0);
           await viewController.startMotion(group: 'idle', priority: 1);
+          // 归零口型
+          await viewController.setParameter('ParamMouthOpenY', 0.0);
         case ZhuaLive2DStatus.thinking:
           await viewController.setExpression(1); // f02 思考
         case ZhuaLive2DStatus.speaking:
@@ -86,6 +88,17 @@ class ZhuaLive2DController {
       }
     } catch (e) {
       debugPrint('[ZhuaLive2D] 动画失败: $e');
+    }
+  }
+
+  /// 设置口型开度（唇形同步专用）
+  /// value: 0=闭嘴，1=张嘴最大
+  Future<void> setMouthOpen(double value) async {
+    if (!_modelLoaded) return;
+    try {
+      await viewController.setParameter('ParamMouthOpenY', value.clamp(0.0, 1.0));
+    } catch (e) {
+      debugPrint('[ZhuaLive2D] 口型设置失败: $e');
     }
   }
 

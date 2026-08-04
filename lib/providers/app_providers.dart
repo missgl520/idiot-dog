@@ -13,6 +13,7 @@ import '../core/services/backend_service.dart';
 import '../core/services/agnes_service.dart';
 import '../core/services/tts_service.dart';
 import '../core/services/cartesia_tts_service.dart';
+import '../core/services/lip_sync_service.dart';
 import '../core/services/asr_service.dart';
 import '../core/services/memory_service.dart';
 import '../models/message.dart';
@@ -188,6 +189,11 @@ final draftProvider = StateProvider<String>((ref) => '');
 /// 系统 TTS（flutter_tts）为降级方案
 final cartesiaTtsServiceProvider = Provider<CartesiaTtsService>((ref) {
   return CartesiaTtsService();
+});
+
+/// 唇形同步服务（单例，供 TTS 播放时驱动 Live2D 口型）
+final lipSyncServiceProvider = Provider<LipSyncService>((ref) {
+  return LipSyncService();
 });
 
 /// TTS 开关（竹芽说话是否自动播报语音）

@@ -35,6 +35,9 @@ class CartesiaTtsService {
   /// 当前是否正在播放
   bool get isPlaying => _isPlaying;
 
+  /// 播放器实例（供 LipSyncService 绑定唇形同步）
+  AudioPlayer get player => _player;
+
   /// 播放状态回调（供 UI 更新竹芽状态）
   void Function(bool)? onPlayingChanged;
 

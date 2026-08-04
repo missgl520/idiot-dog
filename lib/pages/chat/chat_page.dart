@@ -237,10 +237,18 @@ class _ChatPageState extends ConsumerState<ChatPage>
       if (ttsOn && full.isNotEmpty) {
         ref.read(zhuaStatusProvider.notifier).state = ZhuaStatus.speaking;
 
+        // 绑定唇形同步：TTS 播放时驱动 Live2D 口型
+        final lipSync = ref.read(lipSyncServiceProvider);
+        final live2dCtrl = ref.read(live2dControllerProvider);
+        lipSync.onMouthUpdated = (open) {
+          live2dCtrl.setMouthOpen(open);
+        };
+
         final ttsMode = ref.read(ttsModeProvider);
         if (ttsMode == 'cartesia') {
           try {
             final cartesiaTts = ref.read(cartesiaTtsServiceProvider);
+            lipSync.bind(cartesiaTts.player);
             await cartesiaTts.speak(full);
           } catch (e) {
             final tts = ref.read(ttsServiceProvider);
@@ -250,6 +258,8 @@ class _ChatPageState extends ConsumerState<ChatPage>
           final tts = ref.read(ttsServiceProvider);
           await tts.speak(full);
         }
+        // 说话结束，清除口型回调
+        lipSync.onMouthUpdated = null;
       }
 
       // ===== Step 8: 回到空闲状态 =====
