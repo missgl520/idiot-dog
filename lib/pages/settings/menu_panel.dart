@@ -14,6 +14,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/backend_service.dart';
 import '../../providers/app_providers.dart';
@@ -242,10 +243,7 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
               title: const Text('查看对话记忆'),
               onTap: () async {
                 Navigator.pop(context);
-                // TODO: 跳转记忆历史页
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('记忆历史页待实现')),
-                );
+                context.push('/memory-history');
               },
             ),
             ListTile(

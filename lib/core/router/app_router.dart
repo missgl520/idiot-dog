@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../pages/splash/splash_page.dart';
 import '../../pages/chat/chat_page.dart';
+import '../../pages/settings/memory_history_page.dart';
 import '../../pages/voice/voice_call_page.dart';
 
 /// GoRouter 实例 Provider
@@ -56,6 +57,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/voice-call',
         name: 'voice-call',
         builder: (context, state) => const VoiceCallPage(),
+      ),
+      // 记忆历史页
+      GoRoute(
+        path: '/memory-history',
+        name: 'memory-history',
+        builder: (context, state) => const MemoryHistoryPage(),
       ),
     ],
   );
