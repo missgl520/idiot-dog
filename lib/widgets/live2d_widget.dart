@@ -3,10 +3,12 @@
 //
 // 集成 flutter_live2d，接 Atago 模型（碧蓝航线）
 //
-// 触摸交互（v1.9 新增）：
+// 触摸交互（v2.0 优化）：
 //   单击上半区（头/脸） → 随机表情变化
 //   单击下半区（身体） → 摇晃动画
 //   双击任意位置       → 害羞脸红彩蛋
+//   长按头/脸区域      → 持续害羞表情（松开恢复）
+//   长按身体区域       → 持续摇晃动画（松开恢复）
 //
 // 竹芽状态 → 动画映射：
 //   idle        → idle 待机动画（循环）+ f01 表情
@@ -26,10 +28,6 @@ import 'live2d_controller.dart';
 /// 必须配合 ZhuaLive2DController 使用：
 ///   final controller = ref.read(live2dControllerProvider);
 ///   ZhuaLive2DWidget(controller: controller.viewController)
-///
-/// 触摸交互（v1.9）：
-///   onSingleTapUp → handleTouch 按位置分区反应
-///   onDoubleTap   → playDoubleTap 害羞彩蛋
 class ZhuaLive2DWidget extends StatefulWidget {
   final Live2DViewController controller;
   final VoidCallback? onTap;
@@ -45,10 +43,8 @@ class ZhuaLive2DWidget extends StatefulWidget {
 }
 
 class _ZhuaLive2DWidgetState extends State<ZhuaLive2DWidget> {
-  /// 双击间隔阈值（毫秒）
-  static const _doubleTapTimeout = Duration(milliseconds: 300);
-
-  DateTime? _lastTapTime;
+  /// 触摸区域
+  TouchZone? _currentZone;
 
   /// 处理单击：按位置分区触发反应
   void _handleSingleTap(TapUpDetails details) {
@@ -66,24 +62,23 @@ class _ZhuaLive2DWidgetState extends State<ZhuaLive2DWidget> {
     widget.onTap?.call();
   }
 
-  /// GestureDetector 单击回调（含双击拦截）
-  void _onTapUp(TapUpDetails details) {
-    final now = DateTime.now();
-    if (_lastTapTime != null &&
-        now.difference(_lastTapTime!) < _doubleTapTimeout) {
-      // 是双击
-      _lastTapTime = null;
-      _handleDoubleTap();
-    } else {
-      // 是单击，延迟触发（等一下看有没有第二次点击）
-      _lastTapTime = now;
-      Future.delayed(_doubleTapTimeout, () {
-        if (_lastTapTime != null &&
-            DateTime.now().difference(_lastTapTime!) >= _doubleTapTimeout) {
-          _handleSingleTap(details);
-          _lastTapTime = null;
-        }
-      });
+  /// 长按开始：记录区域并通知 Controller
+  void _handleLongPressStart(LongPressStartDetails details) {
+    final size = context.size ?? const Size(120, 200);
+    _currentZone = ZhuaLive2DController.instance.getZone(
+      details.localPosition,
+      size,
+    );
+    if (_currentZone != null) {
+      ZhuaLive2DController.instance.startLongPress(_currentZone!);
+    }
+  }
+
+  /// 长按结束：通知 Controller 停止
+  void _handleLongPressEnd(LongPressEndDetails details) {
+    if (_currentZone != null) {
+      ZhuaLive2DController.instance.endLongPress();
+      _currentZone = null;
     }
   }
 
@@ -92,7 +87,14 @@ class _ZhuaLive2DWidgetState extends State<ZhuaLive2DWidget> {
     return LayoutBuilder(
       builder: (context, constraints) {
         return GestureDetector(
-          onTapUp: _onTapUp,
+          // 单击（Flutter 原生双击拦截，不用手写延迟）
+          onTapUp: _handleSingleTap,
+          // 双击（Flutter 原生，比手写更准确更快）
+          onDoubleTap: _handleDoubleTap,
+          // 长按开始
+          onLongPressStart: _handleLongPressStart,
+          // 长按结束
+          onLongPressEnd: _handleLongPressEnd,
           child: ValueListenableBuilder<Live2DViewState>(
             valueListenable: widget.controller,
             builder: (context, state, _) {
@@ -164,7 +166,7 @@ class _LoadingBounceState extends State<_LoadingBounce>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _c,
-      builder: (_, _) {
+      builder: (context, _) {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: List.generate(3, (i) {
