@@ -276,6 +276,35 @@ class ZhuaLive2DController {
     );
   }
 
+  /// 加载外部 Live2D 模型（从用户本地文件）
+  ///
+  /// [modelDir]  模型所在文件夹的完整路径（来自 file_picker）
+  /// [modelFileName] .model3.json 文件名
+  ///
+  /// 流程：先卸载旧模型 → 加载新模型 → 重播 idle 动画
+  Future<void> loadExternalModel(String modelDir, String modelFileName) async {
+    if (_disposed) return;
+    try {
+      // 先卸载旧模型
+      await viewController.unloadModel();
+      _modelLoaded = false;
+
+      // 加载新模型
+      final ok = await viewController.loadModel(
+        modelDir: modelDir,
+        modelFileName: modelFileName,
+      );
+      _modelLoaded = ok;
+      if (ok) {
+        await viewController.setExpression(0);
+        await viewController.startMotion(group: 'idle', priority: 1);
+      }
+    } catch (e) {
+      debugPrint('[ZhuaLive2D] 外部模型加载失败: $e');
+      rethrow;
+    }
+  }
+
   void dispose() {
     _disposed = true;
     _longPressing = false;

@@ -97,9 +97,10 @@ dependencies:
   uuid: ^4.5.1
   # intl：国际化、日期时间格式化
   intl: ^0.20.2
-  # path_provider：获取系统常用目录（文档、缓存等）
   path_provider: ^2.1.5
+  url_launcher: ^6.3.1
   livekit_client: ^2.10.0
+  file_picker: ^11.0.3
 
 dev_dependencies:
   # Flutter 测试框架
