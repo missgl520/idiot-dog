@@ -1,260 +1,272 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 聊天状态管理器（presentation/providers/）
+// 聊天状态管理（Chat Provider）
 //
-// 职责（单一）：
-// - 管理对话状态机（idle/thinking/writing/speaking）
-// - 管理消息列表
-// - 驱动对话流程：发送消息 → 监听流 → 更新状态
+// 位于：presentation/providers/chat_provider.dart
+// 职责：管理对话状态机，处理流式对话、情绪、好感度
 //
-// 禁止：
-// - 直接操作 HTTP（交给 Repository）
-// - 直接写 UI（交给 Widget）
+// 架构思路（Riverpod StateNotifier）：
+//   不是用 setState 那种"命令式"写法，
+//   而是把状态和操作封装成"不可变对象 + 方法"，
+//   类似 Redux 的单向数据流。
+//
+// 状态机（ConversationStatus）：
+//   idle      → 空闲，等待用户输入
+//   thinking  → 思考中（还没开始输出）
+//   writing   → 正在打字（流式输出中）
+//   speaking  → 正在语音播放
+//
+// 事件驱动：
+//   用户发送消息 → idle → thinking → writing → idle
+//   用户按住录音 → idle → speaking → idle
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/entities/entities.dart';
-import '../../domain/repositories/chat_repository.dart';
-import 'app_providers.dart';
+import '../../domain/entities/message.dart';
+import '../../domain/entities/emotion.dart';
+import '../../domain/entities/affinity.dart';
+import '../../data/services/chat_service.dart';
+import '../../data/repositories/chat_repository_impl.dart';
+import '../../domain/repositories/chat_repository.dart'; // ← ChatEventType 在这里
 
-// ━━━ 状态定义 ━━━
+// ════════════════════════════════════════════════════════════
+// 状态类型定义
+// ════════════════════════════════════════════════════════════
 
+/// 对话状态枚举
 enum ConversationStatus {
-  idle,     // 空闲，等待用户
-  thinking, // AI 正在推理
-  writing,  // AI 正在输出文字
-  speaking, // TTS 播放中
+  /// 空闲：等待用户输入
+  idle,
+
+  /// 思考中：后端正在推理（还没开始输出文字）
+  thinking,
+
+  /// 打字中：后端正在流式输出文字
+  writing,
+
+  /// 播音中：竹芽正在播放 TTS 语音
+  speaking,
 }
 
-// ━━━ Provider ━━━
+// ════════════════════════════════════════════════════════════
+// 状态类（不可变）
+// ════════════════════════════════════════════════════════════
 
-/// 对话状态
-final conversationStatusProvider =
-    StateProvider<ConversationStatus>((ref) => ConversationStatus.idle);
+/// 对话状态数据（不可变类）
+class ChatState {
+  final ConversationStatus status;           // 当前状态
+  final List<Message> messages;              // 消息历史
+  final String? currentText;                 // 当前正在输出的文字（拼接中）
+  final String? error;                      // 错误信息（null = 无错误）
 
-/// 当前情绪（驱动 Live2D 表情）
-final currentEmotionProvider =
-    StateProvider<Emotion>((ref) => const Emotion.neutral());
+  /// 错误信息别名（兼容旧代码 chat_page.dart）
+  String? get errorMessage => error;
+  final Emotion? currentEmotion;            // 当前情绪
+  final Affinity? affinity;                // 好感度
+  final bool isSpeaking;                    // 是否正在播放 TTS
 
-/// 好感度（FutureProvider，懒加载）
-final affinityProvider = FutureProvider<Affinity>((ref) async {
-  final repo = ref.read(chatRepositoryProvider);
-  return repo.getAffinity();
-});
-
-/// 聊天通知器（核心）
-final chatNotifierProvider =
-    StateNotifierProvider<ChatNotifier, ChatNotifierState>((ref) {
-  return ChatNotifier(ref);
-});
-
-// ━━━ State ━━━
-
-class ChatNotifierState {
-  final List<Message> messages;
-  final String? errorMessage;
-
-  const ChatNotifierState({
+  const ChatState({
+    this.status = ConversationStatus.idle,
     this.messages = const [],
-    this.errorMessage,
+    this.currentText,
+    this.error,
+    this.currentEmotion,
+    this.affinity,
+    this.isSpeaking = false,
   });
 
-  ChatNotifierState copyWith({
+  /// 空闲状态
+  factory ChatState.idle() => const ChatState(status: ConversationStatus.idle);
+
+  /// 克隆并修改字段
+  ChatState copyWith({
+    ConversationStatus? status,
     List<Message>? messages,
-    String? errorMessage,
+    String? currentText,
+    String? error,
+    Emotion? currentEmotion,
+    Affinity? affinity,
+    bool? isSpeaking,
   }) {
-    return ChatNotifierState(
+    return ChatState(
+      status: status ?? this.status,
       messages: messages ?? this.messages,
-      errorMessage: errorMessage,
+      currentText: currentText ?? this.currentText,
+      error: error ?? this.error,
+      currentEmotion: currentEmotion ?? this.currentEmotion,
+      affinity: affinity ?? this.affinity,
+      isSpeaking: isSpeaking ?? this.isSpeaking,
     );
   }
 }
 
-// ━━━ Notifier ━━━
+// ════════════════════════════════════════════════════════════
+// Provider
+// ════════════════════════════════════════════════════════════
 
-class ChatNotifier extends StateNotifier<ChatNotifierState> {
-  final Ref _ref;
-  StreamSubscription<ChatEvent>? _streamSub;
-  String? _currentAssistantId;
+/// 聊天通知器（状态管理器）
+///
+/// 用法：
+/// ```dart
+/// ref.read(chatNotifierProvider.notifier).sendMessage('你好');
+/// final status = ref.watch(chatNotifierProvider);  // 监听状态变化
+/// ```
+class ChatNotifier extends StateNotifier<ChatState> {
+  ChatNotifier() : super(ChatState.idle()) {
+    _repository = ChatRepositoryImpl();
+  }
 
-  ChatNotifier(this._ref) : super(const ChatNotifierState());
+  late final ChatRepositoryImpl _repository;
 
-  /// 发送消息
+  // ── 对话相关 ──────────────────────────────────────
+
+  /// 发送消息（核心方法）
   Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty) return;
+    if (state.status != ConversationStatus.idle) return; // 防抖
 
-    final status = _ref.read(conversationStatusProvider);
-    if (status != ConversationStatus.idle) return;
-
-    // 加入用户消息
+    // 1. 追加用户消息
     final userMsg = Message(
-      id: _newId(),
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       role: 'user',
       content: text.trim(),
       timestamp: DateTime.now(),
     );
+
     state = state.copyWith(
+      status: ConversationStatus.thinking,
       messages: [...state.messages, userMsg],
-      errorMessage: null,
+      currentText: '',
+      error: null,
     );
 
-    // 切换状态
-    _ref.read(conversationStatusProvider.notifier).state =
-        ConversationStatus.thinking;
+    // 2. 流式接收竹芽回复
+    String fullText = '';
 
-    // 发起对话流
-    final repo = _ref.read(chatRepositoryProvider);
-    _streamSub?.cancel();
-    _streamSub = repo
-        .sendMessage(
-          message: text.trim(),
-          history: _recentHistory(),
-        )
-        .listen(_onEvent, onDone: _onDone, onError: _onError);
-  }
+    await for (final event in _repository.sendMessageStream(
+      message: text,
+      history: state.messages,
+    )) {
+      switch (event.type) {
+        case ChatEventType.token:
+          // token 事件：拼接文字，进入 writing 状态
+          fullText += event.token ?? '';
+          state = state.copyWith(
+            status: ConversationStatus.writing,
+            currentText: fullText,
+          );
+          break;
 
-  /// 停止当前对话
-  void cancel() {
-    _streamSub?.cancel();
-    _streamSub = null;
-    _currentAssistantId = null;
-    _ref.read(conversationStatusProvider.notifier).state =
-        ConversationStatus.idle;
-  }
+        case ChatEventType.emotion:
+          // 情绪事件：更新情绪状态
+          final emotionLabel = event.emotion ?? 'neutral';
+          state = state.copyWith(
+            currentEmotion: Emotion(emotion: emotionLabel),
+          );
+          break;
 
-  /// 清空对话
-  void clearMessages() {
-    state = const ChatNotifierState();
-    _currentAssistantId = null;
-  }
+        case ChatEventType.affinity:
+          // 好感度事件：更新好感度
+          if (event.affinity != null) {
+            state = state.copyWith(
+              affinity: Affinity.fromJson(event.affinity!),
+            );
+          }
+          break;
 
-  // ━━━ 事件处理（sealed class 模式匹配） ━━━
+        case ChatEventType.done:
+          // 完成：把当前文字存为正式消息，回到 idle
+          final assistantMsg = Message(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            role: 'assistant',
+            content: fullText,
+            timestamp: DateTime.now(),
+            emotion: state.currentEmotion?.emotion,
+          );
+          state = state.copyWith(
+            status: ConversationStatus.idle,
+            messages: [...state.messages, assistantMsg],
+            currentText: null,
+          );
+          break;
 
-  void _onEvent(ChatEvent event) {
-    switch (event) {
-      case TextChatEvent(text: final t):
-        _handleTextChunk(t);
-      case EmotionChatEvent(emotion: final e):
-        _handleEmotion(e);
-      case AffinityChatEvent(affinity: final a):
-        _handleAffinity(a);
-      case DoneChatEvent():
-        _onDone();
-      case ErrorChatEvent(message: final m):
-        _onError(m);
-    }
-  }
-
-  void _handleTextChunk(String text) {
-    if (_currentAssistantId == null) {
-      // 首次收到文字：创建空消息体
-      _ref.read(conversationStatusProvider.notifier).state =
-          ConversationStatus.writing;
-      _currentAssistantId = _newId();
-      final assistantMsg = Message(
-        id: _currentAssistantId!,
-        role: 'assistant',
-        content: text,
-        timestamp: DateTime.now(),
-        isStreaming: true,
-      );
-      state = state.copyWith(
-        messages: [...state.messages, assistantMsg],
-      );
-    } else {
-      // 追加到当前消息
-      final msgs = state.messages.toList();
-      final lastIdx = msgs.length - 1;
-      msgs[lastIdx] = msgs[lastIdx].copyWith(
-        content: msgs[lastIdx].content + text,
-      );
-      state = state.copyWith(messages: msgs);
-    }
-  }
-
-  void _handleEmotion(Emotion emotion) {
-    _ref.read(currentEmotionProvider.notifier).state = emotion;
-  }
-
-  void _handleAffinity(Affinity affinity) {
-    // FutureProvider 用 invalidate + future 重载
-    _ref.invalidate(affinityProvider);
-  }
-
-  void _onDone() {
-    _streamSub?.cancel();
-    _streamSub = null;
-
-    if (_currentAssistantId != null) {
-      final msgs = state.messages.toList();
-      final lastIdx = msgs.length - 1;
-      if (lastIdx >= 0) {
-        msgs[lastIdx] = msgs[lastIdx].copyWith(isStreaming: false);
-        state = state.copyWith(messages: msgs);
+        case ChatEventType.error:
+          // 错误：提示用户
+          state = state.copyWith(
+            status: ConversationStatus.idle,
+            error: event.error,
+          );
+          break;
       }
     }
-
-    _currentAssistantId = null;
-    _ref.read(conversationStatusProvider.notifier).state =
-        ConversationStatus.speaking;
-
-    // 触发 TTS 播放
-    _playTts();
   }
 
-  Future<void> _playTts() async {
-    final ttsEnabled = _ref.read(ttsEnabledProvider);
-    if (!ttsEnabled) {
-      _ref.read(conversationStatusProvider.notifier).state =
-          ConversationStatus.idle;
-      return;
-    }
-
-    // 取最后一条 AI 回复
-    final msgs = state.messages;
-    final lastMsg = msgs.isNotEmpty ? msgs.last : null;
-    if (lastMsg == null || lastMsg.role != 'assistant') {
-      _ref.read(conversationStatusProvider.notifier).state =
-          ConversationStatus.idle;
-      return;
-    }
-
-    final tts = _ref.read(cartesiaTtsServiceProvider);
-    await tts.init(baseUrl: null); // 使用 CartesiaService 默认地址
-
-    // 绑定 LipSync → 播放器，唇形自动跟随 TTS 播放状态
-    final lipSync = _ref.read(lipSyncServiceProvider);
-    lipSync.bind(tts.player);
-
-    try {
-      await tts.speak(lastMsg.content);
-    } catch (e) {
-      // TTS 失败不阻塞对话
-    }
-
-    final current = _ref.read(conversationStatusProvider);
-    if (current == ConversationStatus.speaking) {
-      _ref.read(conversationStatusProvider.notifier).state =
-          ConversationStatus.idle;
-    }
+  /// 取消当前对话（停止流式输出）
+  void cancel() {
+    state = state.copyWith(
+      status: ConversationStatus.idle,
+      currentText: null,
+    );
   }
 
-  void _onError(String message) {
-    _streamSub?.cancel();
-    _streamSub = null;
-    _currentAssistantId = null;
-    state = state.copyWith(errorMessage: message);
-    _ref.read(conversationStatusProvider.notifier).state =
-        ConversationStatus.idle;
+  /// 清空对话历史
+  void clearHistory() {
+    state = ChatState.idle();
   }
 
-  // ━━━ 工具 ━━━
+  // ── 情绪相关 ──────────────────────────────────────
 
-  List<Message> _recentHistory() {
-    return state.messages.where((m) => !m.isStreaming).toList();
+  /// 手动设置情绪（用于非对话场景）
+  void setEmotion(String emotion) {
+    state = state.copyWith(
+      currentEmotion: Emotion(emotion: emotion),
+    );
   }
 
-  int _msgCount = 0;
-  String _newId() =>
-      'msg_${DateTime.now().millisecondsSinceEpoch}_${_msgCount++}';
+  /// 重置情绪（回到中性）
+  void resetEmotion() {
+    state = state.copyWith(
+      currentEmotion: const Emotion(emotion: 'neutral'),
+    );
+  }
+
+  // ── TTS 播放状态 ──────────────────────────────────
+
+  /// 开始 TTS 播放
+  void startSpeaking() {
+    state = state.copyWith(
+      status: ConversationStatus.speaking,
+      isSpeaking: true,
+    );
+  }
+
+  /// 结束 TTS 播放
+  void stopSpeaking() {
+    state = state.copyWith(
+      status: ConversationStatus.idle,
+      isSpeaking: false,
+    );
+  }
 }
+
+// ── 全局 Provider 声明 ─────────────────────────────────
+// Riverpod 会自动管理生命周期，无需手动 dispose
+final chatNotifierProvider =
+    StateNotifierProvider<ChatNotifier, ChatState>((ref) {
+  return ChatNotifier();
+});
+
+/// 当前情绪 Provider（方便单独监听）
+final currentEmotionProvider = Provider<Emotion?>((ref) {
+  return ref.watch(chatNotifierProvider).currentEmotion;
+});
+
+/// 好感度 Provider
+final affinityProvider = Provider<Affinity?>((ref) {
+  return ref.watch(chatNotifierProvider).affinity;
+});
+
+/// 对话状态 Provider（用于 UI 条件渲染）
+final conversationStatusProvider = Provider<ConversationStatus>((ref) {
+  return ref.watch(chatNotifierProvider).status;
+});

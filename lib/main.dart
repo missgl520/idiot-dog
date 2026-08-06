@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
-import 'providers/app_providers.dart';
+import 'presentation/providers/app_providers.dart';
 
 void main() async {
   // Flutter 异步初始化必须调用
@@ -48,8 +48,8 @@ class ZhuyApp extends ConsumerWidget {
     return MaterialApp.router(
       title: '竹芽',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,    // 亮色主题配色
-      darkTheme: AppTheme.darkTheme,  // 暗色主题配色
+      theme: AppTheme.light,    // 亮色主题配色
+      darkTheme: AppTheme.dark,  // 暗色主题配色
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       routerConfig: router,          // 注入路由配置
     );

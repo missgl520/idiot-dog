@@ -17,7 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../core/theme/app_theme.dart';
-import '../../providers/app_providers.dart';
+import '../../presentation/providers/app_providers.dart';
 
 // 当前展开项（null = 全部收起）
 final settingsExpandedProvider = StateProvider<String?>((ref) => null);

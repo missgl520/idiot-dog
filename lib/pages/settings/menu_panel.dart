@@ -20,7 +20,7 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/backend_service.dart';
-import '../../providers/app_providers.dart';
+import '../../presentation/providers/app_providers.dart';
 import '../voice/voice_call_page.dart';
 
 class MenuPanel extends ConsumerStatefulWidget {

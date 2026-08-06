@@ -10,7 +10,7 @@
 //   - 有头像（头像 + 消息 + 打字动画）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import 'package:flutter/material.dart';
-import '../models/message.dart';
+import '../domain/entities/message.dart';
 import '../../core/theme/app_theme.dart';
 
 class ChatBubble extends StatelessWidget {

@@ -16,7 +16,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import '../../providers/app_providers.dart';
+import '../../presentation/providers/app_providers.dart';
 
 // ━━━━━━━━━━━━━━━ 后端接口（HTTP） ━━━━━━━━━━━━━━━
 

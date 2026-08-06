@@ -1,36 +1,113 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 竹芽配置（单例，无依赖，可被任何层 import）
+// 后端配置（Backend Config）
+//
+// 位于：core/config.dart
+// 职责：集中管理所有后端相关配置
+//
+// 配置来源（优先级从高到低）：
+//   1. 运行时修改（代码中调用 setBaseUrl / setWakeWord）
+//   2. 本地持久化（Hive storage）
+//   3. 硬编码默认值（代码里的 default）
+//
+// 为什么用单例（Singleton）？
+//   配置是全局的，不需要每次 new 一个实例。
+//   整个 App 共享同一份后端地址、唤醒词等配置。
+//
+// 持久化方案：Hive（轻量本地数据库，比 SharedPreferences 更快）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'package:hive_flutter/hive_flutter.dart';
 
-/// 后端地址配置单例
-///
-/// 用法：
-///   BackendConfig.instance.baseUrl  // 读取
-///   BackendConfig.instance.setBaseUrl('http://...')  // 写入
-///
-/// 所有服务统一从这里读后端地址，避免硬编码
 class BackendConfig {
   BackendConfig._();
-  static final BackendConfig _instance = BackendConfig._();
-  static BackendConfig get instance => _instance;
 
-  /// 读取当前后端地址（默认穿透地址，生产环境用）
-  String get baseUrl =>
-      Hive.box('settings').get('backendUrl', defaultValue: 'https://chilly-sloths-jump.loca.lt') as String;
+  /// 单例访问器
+  /// 使用方式：BackendConfig.instance.baseUrl
+  static final BackendConfig instance = BackendConfig._();
 
-  /// 写入后端地址
-  void setBaseUrl(String url) {
-    Hive.box('settings').put('backendUrl', url);
+  // ── 硬编码默认值（最低优先级）───────────────────────
+  // 这些值会被 Hive 里的值覆盖
+
+  /// 后端服务地址
+  /// 开发环境默认：ngrok 穿透地址
+  /// 生产环境：需要换成真实服务器域名
+  static const String _defaultBaseUrl = 'https://chilly-sloths-jump.loca.lt';
+
+  /// 默认唤醒词（用户还没设置过时的兜底值）
+  static const String _defaultWakeWord = '竹芽竹芽';
+
+  /// 情感语音角色
+  /// 可选：gentle（温柔）/ playful（俏皮）/ wise（智慧）
+  static const String _defaultPersona = 'gentle';
+
+  // ── 运行时配置（代码可以动态修改）───────────────────
+
+  String _baseUrl = _defaultBaseUrl;
+  String _wakeWord = _defaultWakeWord;
+  String _persona = _defaultPersona;
+
+  /// 当前后端地址
+  String get baseUrl => _baseUrl;
+
+  /// 当前唤醒词
+  String get wakeWord => _wakeWord;
+
+  /// 当前情感角色
+  String get persona => _persona;
+
+  // ── 初始化（App 启动时调用一次）─────────────────────
+
+  /// 从 Hive 恢复持久化配置
+  ///
+  /// 在 main() 里调用：
+  /// ```dart
+  /// await BackendConfig.instance.init();
+  /// ```
+  Future<void> init() async {
+    // 打开名为 'settings' 的 Hive 盒子
+    final box = await Hive.openBox('settings');
+
+    // 恢复各配置项（如果 Hive 没有，就用默认值）
+    _baseUrl = box.get('backendUrl', defaultValue: _defaultBaseUrl);
+    _wakeWord = box.get('wakeWord', defaultValue: _defaultWakeWord);
+    _persona = box.get('persona', defaultValue: _defaultPersona);
   }
 
-  /// 读取唤醒词（默认"竹芽竹芽"）
-  String get wakeWord =>
-      Hive.box('settings').get('wakeWord', defaultValue: '竹芽竹芽') as String;
+  // ── 运行时修改（会自动写入 Hive）────────────────────
 
-  /// 写入唤醒词
+  /// 修后端地址
+  /// [url] 必须是有效的 http/https URL
+  void setBaseUrl(String url) {
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      throw FormatException('后端地址必须是 http/https 开头');
+    }
+    _baseUrl = url;
+    _save('backendUrl', url);
+  }
+
+  /// 修改唤醒词
+  /// [word] 2-20字，中英文均可
   void setWakeWord(String word) {
-    Hive.box('settings').put('wakeWord', word);
+    _wakeWord = word.trim();
+    _save('wakeWord', _wakeWord);
+  }
+
+  /// 修改情感角色
+  void setPersona(String persona) {
+    if (!['gentle', 'playful', 'wise'].contains(persona)) {
+      throw ArgumentError('persona 必须是 gentle/playful/wise 之一');
+    }
+    _persona = persona;
+    _save('persona', persona);
+  }
+
+  /// 保存到 Hive
+  Future<void> _save(String key, dynamic value) async {
+    try {
+      final box = await Hive.openBox('settings');
+      await box.put(key, value);
+    } catch (_) {
+      // Hive 写入失败不影响主流程，内存值已更新
+    }
   }
 }

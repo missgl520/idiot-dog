@@ -11,8 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../settings/settings_sheet.dart';
 import '../settings/menu_panel.dart';
-import '../../models/message.dart' as old_msg;
-import '../../providers/app_providers.dart' as old_providers;
+import '../../providers/app_providers_legacy.dart' as old_msg;
+import '../../presentation/providers/app_providers.dart' as old_providers;
 import '../../domain/entities/entities.dart' as entities;
 import '../../presentation/providers/app_providers.dart' as new_providers;
 import '../../presentation/providers/chat_provider.dart';
@@ -70,7 +70,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
 
       // 新架构：监听情绪变化，同步 Live2D 表情
       ref.listenManual(currentEmotionProvider, (_, emotion) {
-        _syncLive2DEmotion(emotion.label.name);
+        _syncLive2DEmotion(emotion?.emotion ?? 'neutral');
       });
 
       // 旧架构：语音识别结果

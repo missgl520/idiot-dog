@@ -11,7 +11,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_theme.dart';
-import '../providers/app_providers.dart';
+import '../presentation/providers/app_providers.dart';
 
 class VoiceButton extends ConsumerStatefulWidget {
   const VoiceButton({super.key});

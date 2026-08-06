@@ -1,51 +1,26 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 竹芽全局 Provider 配置
+// 统一 Provider 入口（App Providers）
 //
-// 新架构（v2）统一 Provider 入口
+// 位于：presentation/providers/app_providers.dart
+// 职责：集中导出所有 Provider，方便其他文件统一 import
+//
+// 使用方式（其他文件）：
+//   import 'package:zhuyapp/presentation/providers/app_providers.dart';
+//   // 然后直接用 ref.watch(chatNotifierProvider) 即可
+//
+// 这样做的好处：
+//   - 避免每个文件都要写一长串 import 路径
+//   - 新增 Provider 只需要改这一个文件
+//   - 避免循环依赖（legacy 和新架构通过这个文件隔离）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/services/chat_service.dart';
-import '../../data/repositories/chat_repository_impl.dart';
-import '../../domain/repositories/chat_repository.dart';
-import '../../providers/app_providers.dart' as old_providers;
+// 导出旧版 legacy providers（Hive、ASR、TTS、Live2D 等历史遗留）
+// 路径：presentation/providers/ → lib/providers/
+export '../../providers/app_providers_legacy.dart';
 
-// ━━━ DataSource / Service ━━━
-
-/// 聊天服务（封装"怎么拿"）
-final chatServiceProvider = Provider<ChatService>((ref) {
-  return ChatService();
-});
-
-// ━━━ Repository ━━━
-
-/// 对话仓库（只管"要什么"，调 Service）
-final chatRepositoryProvider = Provider<ChatRepository>((ref) {
-  final service = ref.watch(chatServiceProvider);
-  return ChatRepositoryImpl(service);
-});
-
-// ━━━ TTS（委托旧 providers） ━━━
-
-/// Cartesia 情感 TTS 服务
-final cartesiaTtsServiceProvider = old_providers.cartesiaTtsServiceProvider;
-
-/// Lip Sync 口型服务
-final lipSyncServiceProvider = old_providers.lipSyncServiceProvider;
-
-/// 口型值流（实时驱动 Live2D 唇形）
-final lipSyncStreamProvider = StreamProvider<double>((ref) {
-  final service = ref.watch(lipSyncServiceProvider);
-  return service.mouthStream;
-});
-
-/// TTS 是否启用
-final ttsEnabledProvider = old_providers.ttsEnabledProvider;
-
-// ━━━ 后端状态 ━━━
-
-/// 后端是否在线
-final backendOnlineProvider = FutureProvider<bool>((ref) async {
-  final service = ref.read(chatServiceProvider);
-  return service.isOnline();
-});
+// 导出新版状态管理（对话状态机、情绪、好感度）
+// 注意：隐藏 currentEmotionProvider 以避免与 legacy 冲突
+//   legacy 有 currentEmotionProvider（旧版 EmotionResult 类型）
+//   chat_provider 有 currentEmotionProvider（新版本 Emotion 类型）
+//   旧页面用 legacy 版，新页面如果需要新版 emotion 用 chat_provider
+export 'chat_provider.dart' hide currentEmotionProvider, affinityProvider;

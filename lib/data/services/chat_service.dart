@@ -1,215 +1,252 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 聊天服务（data/services/）
+// 对话服务（Chat Service）
 //
-// 职责：
-// - 封装"怎么拿数据"的业务逻辑
-// - 协调 DataSource，处理 SSE 流式事件转换
-// - 纯 Dart，不直接依赖 Flutter
+// 位于：data/services/chat_service.dart
+// 职责：封装"怎么跟后端拿数据"，包含 SSE 流解析和 HTTP 请求
 //
-// 边界：
-// - 不知道 UI 是什么（与 Flutter/Riverpod 解耦）
-// - 不知道上层要做什么（由 Repository 决定怎么用）
+// 关键设计：SSE（Server-Sent Events）
+//   不同于传统 HTTP"请求-响应"，SSE 允许后端主动推送数据。
+//   想象成微信消息推送——后端边想边说，前端边收边显示。
+//
+// SSE 事件格式（后端推送的每条数据）：
+//   event: text
+//   data: {"text": "你好"}
+//
+//   event: emotion
+//   data: {"emotion": "happy", "confidence": 0.92}
+//
+//   event: done
+//   data: {}
+//
+// 技术实现：
+//   - HTTP POST 发起请求，携带 JSON body
+//   - 后端返回流式响应（Content-Type: text/event-stream）
+//   - 本类逐行解析 SSE 格式，分发到不同事件类型
+//   - 丢掉的 token 攒成完整文字，通过 onText 回调返回
+//
+// 线程安全：无（Flutter 单线程，SSE 在主 isolate 运行）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'dart:async';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../../core/config.dart';
-import '../../domain/entities/entities.dart';
+import 'package:dio/dio.dart';
 import '../../domain/repositories/chat_repository.dart';
+import '../../domain/entities/message.dart';
 
-/// 聊天服务 — 封装对话核心业务逻辑
+/// 对话服务
+///
+/// 负责：
+/// 1. 构造 HTTP 请求（POST /chat/v2）
+/// 2. 解析 SSE 流事件
+/// 3. 将事件转换为 ChatEvent 推送给调用方
 class ChatService {
-  ChatService();
+  ChatService({Dio? dio}) : _dio = dio ?? Dio();
 
-  String get _baseUrl => BackendConfig.instance.baseUrl;
+  final Dio _dio;
 
-  // ━━━ 对话流（SSE 解析 + 事件转换） ━━━
-  //
-  // 这个方法是"怎么拿"的核心：
-  // - 构造请求体
-  // - 发起 HTTP 请求
-  // - 解析 SSE 双层 data: 前缀
-  // - 将原始 JSON 转为领域事件
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Stream<ChatEvent> sendMessageStream({
+  /// 发送消息并获取流式响应
+  ///
+  /// [message]      用户输入的文字
+  /// [history]      历史消息列表（传给后端做上下文）
+  /// [systemPrompt] 自定义角色设定（可空）
+  /// [onText]       每收到一个 token 片段就触发回调
+  /// [onEmotion]    情绪识别结果回调
+  /// [onAffinity]   好感度变化回调
+  /// [onDone]       回复结束回调
+  /// [onError]      错误回调
+  ///
+  /// 返回 Future<bool>：true=成功，false=失败
+  Future<bool> streamChat({
     required String message,
     required List<Message> history,
     String? systemPrompt,
-  }) async* {
-    final allMessages = [
-      ...history.map((m) => {'role': m.role, 'content': m.content}),
-      {'role': 'user', 'content': message},
-    ];
-
-    final body = <String, dynamic>{
-      'message': message,
-      'history': allMessages,
-      'temperature': 0.7,
-    };
-
-    if (systemPrompt != null && systemPrompt.isNotEmpty) {
-      body['system_prompt'] = systemPrompt;
-    }
-
+    required void Function(String token) onText,
+    void Function(String emotion, double confidence)? onEmotion,
+    void Function(Map<String, dynamic> affinity)? onAffinity,
+    void Function()? onDone,
+    void Function(String error)? onError,
+  }) async {
     try {
-      final request = http.Request(
-        'POST',
-        Uri.parse('$_baseUrl/chat/v2'),
-      );
-      request.headers['Content-Type'] = 'application/json';
-      request.body = jsonEncode(body);
+      // ── 第1步：构造请求体 ──────────────────────────────
+      // 历史消息转成 [{role, content}, ...] 格式
+      final messages = [
+        ...history.map((m) => {
+              'role': m.role,
+              'content': m.content,
+            }),
+        {'role': 'user', 'content': message},
+      ];
 
-      final streamedResponse = await http.Client().send(request);
+      final body = <String, dynamic>{
+        'message': message,
+        'history': messages,
+        'temperature': 0.8,   // 随机性参数，越高越有创意
+        'max_tokens': 500,    // 最大输出 token 数
+      };
 
-      if (streamedResponse.statusCode != 200) {
-        final bodyStr = await streamedResponse.stream.bytesToString();
-        yield ErrorChatEvent('后端错误 ${streamedResponse.statusCode}：$bodyStr');
-        return;
+      if (systemPrompt != null) {
+        body['system_prompt'] = systemPrompt;
       }
 
-      String buffer = '';
+      // ── 第2步：发起 POST 请求 ─────────────────────────
+      // 注意：responseType = ResponseType.stream 表示接收流式响应
+      final resp = await _dio.post(
+        '/chat/v2',
+        data: body,
+        options: Options(
+          responseType: ResponseType.stream,  // ← 关键：告诉 Dio 要流式接收
+          headers: {'Accept': 'text/event-stream'},
+        ),
+      );
 
-      await for (final chunk
-          in streamedResponse.stream.transform(utf8.decoder)) {
-        buffer += chunk;
+      // ── 第3步：逐行解析 SSE 流 ────────────────────────
+      // SSE 格式说明：
+      //   "event: text\ndata: {...}\n\n"
+      //   我们把 event: 存到 _currentEvent，\n\n 表示一条完整消息
+      String _currentEvent = 'text';
+      StringBuffer _textBuffer = StringBuffer();
 
-        while (buffer.contains('\n\n')) {
-          final eventEnd = buffer.indexOf('\n\n');
-          String rawEvent = buffer.substring(0, eventEnd).trim();
-          buffer = buffer.substring(eventEnd + 2);
+      final stream = resp.data.stream as Stream<List<int>>;
 
-          if (rawEvent.isEmpty) continue;
+      await for (final chunk in stream) {
+        // chunk 是网络层拿到的原始字节，转成字符串
+        final lines = utf8.decode(chunk).split('\n');
 
-          if (rawEvent.startsWith('event:')) {
-            // 命名事件：emotion / affinity / done / error
-            final lines = rawEvent.split('\n');
-            final eventType = lines.first.substring(6).trim();
-            final dataLine =
-                lines.length > 1 ? lines[1].substring(5).trim() : '{}';
+        for (final line in lines) {
+          final trimmed = line.trim();
+          if (trimmed.isEmpty) {
+            // \n\n 分隔符，一条事件结束了
+            _dispatch(_currentEvent, _textBuffer.toString(), onText, onEmotion, onAffinity);
+            _textBuffer.clear();
+            _currentEvent = 'text'; // 重置默认事件类型
+            continue;
+          }
 
-            if (dataLine.isEmpty) continue;
-
-            try {
-              final data = jsonDecode(dataLine) as Map<String, dynamic>;
-              yield* _handleNamedEvent(eventType, data);
-            } catch (_) {}
-          } else if (rawEvent.startsWith('data:')) {
-            // 匿名文本行（双层 data: 前缀容错）
-            String dataStr = _stripDataPrefix(rawEvent);
-            if (dataStr.isNotEmpty && dataStr != '{}') {
-              yield* _parseTextEvent(dataStr);
-            }
+          if (trimmed.startsWith('event:')) {
+            // 事件类型行：event: emotion
+            _currentEvent = trimmed.substring(6).trim();
+          } else if (trimmed.startsWith('data:')) {
+            // 数据行：data: {"text": "..."}
+            _textBuffer.write(trimmed.substring(5));
           }
         }
       }
-    } catch (e) {
-      yield ErrorChatEvent('连接失败：$e');
-    }
-  }
 
-  /// 解析命名 SSE 事件
-  Stream<ChatEvent> _handleNamedEvent(
-      String eventType, Map<String, dynamic> data) async* {
-    switch (eventType) {
-      case 'emotion':
-        yield EmotionChatEvent(_toEmotion(data));
-      case 'affinity':
-        yield AffinityChatEvent(_toAffinity(data));
-      case 'done':
-        yield const DoneChatEvent();
-      case 'error':
-        yield ErrorChatEvent(data['error']?.toString() ?? '未知错误');
-    }
-  }
-
-  /// 解析文本数据行（data: data: {...} 双层前缀兼容）
-  Stream<ChatEvent> _parseTextEvent(String dataStr) async* {
-    try {
-      final data = jsonDecode(dataStr);
-      final text = data is String
-          ? data
-          : (data as Map)['content']?.toString() ?? '';
-      if (text.isNotEmpty) yield TextChatEvent(text);
-    } catch (_) {
-      yield TextChatEvent(dataStr);
-    }
-  }
-
-  String _stripDataPrefix(String raw) {
-    if (raw.startsWith('data: data: ')) return raw.substring(11);
-    if (raw.startsWith('data: ')) return raw.substring(6);
-    return raw.substring(5).trimLeft();
-  }
-
-  // ━━━ 好感度（简单 HTTP GET/PUT） ━━━
-
-  Future<Affinity> getAffinity() async {
-    try {
-      final resp = await http
-          .get(Uri.parse('$_baseUrl/affinity'))
-          .timeout(const Duration(seconds: 5));
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        return _toAffinity(data);
+      // 流结束，最后一条事件可能没有 \n\n
+      if (_textBuffer.isNotEmpty) {
+        _dispatch(_currentEvent, _textBuffer.toString(), onText, onEmotion, onAffinity);
       }
-    } catch (_) {}
-    return const Affinity.initial();
-  }
 
-  Future<void> resetAffinity() async {
-    try {
-      await http
-          .put(Uri.parse('$_baseUrl/affinity?action=reset'))
-          .timeout(const Duration(seconds: 5));
-    } catch (_) {}
-  }
-
-  // ━━━ 记忆 ━━━
-
-  Future<bool> clearMemory({String category = 'chat_memory'}) async {
-    try {
-      final resp = await http
-          .delete(Uri.parse('$_baseUrl/memory?category=$category'))
-          .timeout(const Duration(seconds: 5));
-      return resp.statusCode == 200;
-    } catch (_) {
+      onDone?.call();
+      return true;
+    } on DioException catch (e) {
+      // 网络错误（超时/断网/后端挂了）
+      onError?.call(_formatDioError(e));
+      return false;
+    } catch (e) {
+      onError?.call('未知错误: $e');
       return false;
     }
   }
 
-  // ━━━ 健康检查 ━━━
+  /// 根据事件类型分发到不同回调
+  void _dispatch(
+    String eventType,
+    String rawData,
+    void Function(String token) onText,
+    void Function(String emotion, double confidence)? onEmotion,
+    void Function(Map<String, dynamic> affinity)? onAffinity,
+  ) {
+    if (rawData.isEmpty) return;
 
+    try {
+      final json = jsonDecode(rawData) as Map<String, dynamic>;
+
+      switch (eventType) {
+        case 'text':
+          // AI 输出的文字片段
+          final text = json['text'] as String?;
+          if (text != null && text.isNotEmpty) {
+            onText(text);
+          }
+          break;
+
+        case 'emotion':
+          // 情绪识别结果
+          final emotion = json['emotion'] as String? ?? 'neutral';
+          final confidence = (json['confidence'] as num?)?.toDouble() ?? 0.5;
+          onEmotion?.call(emotion, confidence);
+          break;
+
+        case 'affinity':
+          // 好感度变化
+          onAffinity?.call(json);
+          break;
+
+        case 'done':
+          // 流结束标识（无 payload）
+          break;
+
+        default:
+          // 未知事件类型，忽略
+          break;
+      }
+    } catch (_) {
+      // JSON 解析失败（非 JSON 纯文本），当作 text 事件处理
+      if (eventType == 'text') {
+        onText(rawData);
+      }
+    }
+  }
+
+  /// 格式化 Dio 错误
+  String _formatDioError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        return '连接超时，请检查网络';
+      case DioExceptionType.sendTimeout:
+        return '发送超时';
+      case DioExceptionType.receiveTimeout:
+        return '后端响应超时';
+      case DioExceptionType.badResponse:
+        final statusCode = e.response?.statusCode;
+        if (statusCode == 401) return '后端认证失败，请检查 API Key';
+        if (statusCode == 403) return '后端拒绝访问';
+        if (statusCode == 404) return '后端接口不存在';
+        if (statusCode == 502) return '后端网关错误';
+        return '后端错误: $statusCode';
+      case DioExceptionType.cancel:
+        return '请求被取消';
+      case DioExceptionType.connectionError:
+        return '网络连接失败，请检查网络';
+      default:
+        return e.message ?? '网络错误';
+    }
+  }
+
+  /// 单独检测情绪（不走流式）
+  Future<String> detectEmotion(String text) async {
+    try {
+      final resp = await _dio.post(
+        '/emotion',
+        data: {'text': text},
+      );
+      final data = resp.data as Map<String, dynamic>;
+      return data['emotion'] as String? ?? 'neutral';
+    } catch (_) {
+      return 'neutral';
+    }
+  }
+
+  /// 检查后端是否在线
   Future<bool> isOnline() async {
     try {
-      final resp = await http
-          .get(Uri.parse('$_baseUrl/health'))
-          .timeout(const Duration(seconds: 3));
+      final resp = await _dio.get('/health', options: Options(
+        receiveTimeout: const Duration(seconds: 5),
+      ));
       return resp.statusCode == 200;
     } catch (_) {
       return false;
     }
-  }
-
-  // ━━━ DTO → Entity 转换 ━━━
-
-  Emotion _toEmotion(Map<String, dynamic> data) {
-    final label = data['emotion'] as String? ?? 'neutral';
-    final confidence = (data['confidence'] as num?)?.toDouble() ?? 0.5;
-    return Emotion(
-      label: EmotionLabel.fromString(label),
-      confidence: confidence,
-    );
-  }
-
-  Affinity _toAffinity(Map<String, dynamic> data) {
-    return Affinity(
-      trust: (data['trust'] as num?)?.toDouble() ?? 30,
-      intimacy: (data['intimacy'] as num?)?.toDouble() ?? 20,
-      familiarity: (data['familiarity'] as num?)?.toDouble() ?? 5,
-      totalInteractions: (data['total_interactions'] as num?)?.toInt() ?? 0,
-      streakDays: (data['streak_days'] as num?)?.toInt() ?? 0,
-    );
   }
 }

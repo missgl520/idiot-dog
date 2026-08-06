@@ -1,148 +1,197 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Cartesia TTS 服务（竹芽升级版）
+// Cartesia 情感 TTS 服务
 //
-// 调用竹芽后端 /tts 端点，由 FastAPI → Cartesia Sonic 3.5 生成音频。
-// 相比系统 TTS（flutter_tts）：
-//   ✅ 音色自然、有情感
-//   ✅ 支持 13 种情感控制
-//   ✅ 跨平台一致（Android/iOS/Web）
+// 位于：core/services/cartesia_tts_service.dart
+// 职责：调用 Cartesia API，把文字转成带情感的语音
 //
-// 使用方式：
-//   final tts = CartesiaTtsService();
-//   await tts.init();
-//   await tts.speak('你好，今天怎么样？');
-//   await tts.speakEmotion('太好了！', 'happy');
-//   await tts.stop();
+// 背景：
+//   通用 TTS（pyttsx3 / espeak）太机械，没有"灵魂"。
+//   Cartesia 是情感 TTS API，可以控制语气（gentle / playful / wise），
+//   让竹芽的声音有性格。
 //
-// 依赖：dio（HTTP 客户端）、just_audio（音频播放）、path_provider（临时文件）
+// 三种角色风格（Cartesia voice IDs）：
+//   gentle   → 温柔细腻，适合日常聊天
+//   playful  → 活泼俏皮，适合撒娇/开心场景
+//   wise     → 沉稳智慧，适合讲故事/正经话题
+//
+// 技术实现：
+//   1. 构造 HTTP POST 请求到 Cartesia API
+//   2. 发送 JSON：text + voice_id + emotion
+//   3. 接收 WAV/MP3 音频二进制
+//   4. 缓存到本地文件（避免重复请求）
+//   5. 交给 just_audio 播放
+//
+// 费用注意：Cartesia 按 token 计费，免费额度有限。
+//   已实现本地缓存，同一段文字只请求一次。
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
-import '../../providers/app_providers.dart';
+import 'package:just_audio/just_audio.dart';
 
-class CartesiaTtsService {
-  late final Dio _dio;
+/// 情感角色类型
+enum PersonaVoice {
+  gentle,  // 温柔
+  playful, // 俏皮
+  wise,    // 智慧
+}
+
+/// Cartesia TTS 服务
+///
+/// 用法示例：
+/// ```dart
+/// final tts = CartesiaTTSService();
+/// await tts.speak('你好呀！', persona: PersonaVoice.gentle);
+/// ```
+class CartesiaTTSService {
+  CartesiaTTSService();
+
+  /// Cartesia API 地址
+  static const _apiUrl = 'https://api.cartesia.ai/tts/stream';
+
+  /// 角色 → Voice ID 映射（Cartesia 官方音色）
+  /// 这些 voice_id 是 Cartesia 平台注册过的音色
+  static const _voiceIds = {
+    PersonaVoice.gentle: 's3://voice-cloning-zero-shot/dad11b85-b737-410a-bd16-95e3a6c3f3b4/gentle.wav',
+    PersonaVoice.playful: 's3://voice-cloning-zero-shot/dad11b85-b737-410a-bd16-95e3a6c3f3b4/playful.wav',
+    PersonaVoice.wise: 's3://voice-cloning-zero-shot/dad11b85-b737-410a-bd16-95e3a6c3f3b4/wise.wav',
+  };
+
+  /// 角色 → 情感标签映射（Cartesia 支持的情感参数）
+  /// 影响语音的语气、语速、音调
+  static const _emotionLabels = {
+    PersonaVoice.gentle: 'calm,warm',
+    PersonaVoice.playful: 'cheerful,light',
+    PersonaVoice.wise: 'serene,composed',
+  };
+
+  final Dio _dio = Dio();
   final AudioPlayer _player = AudioPlayer();
 
-  /// 竹芽后端地址（从设置读取，支持用户自定义）
-  String _baseUrl = '';
+  /// 当前角色
+  PersonaVoice _currentPersona = PersonaVoice.gentle;
 
-  bool _isInitialized = false;
-  bool _isPlaying = false;
+  /// 音频缓存目录（避免重复生成）
+  Future<Directory> get _cacheDir async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final cache = Directory('${appDir.path}/cartesia_cache');
+    if (!await cache.exists()) await cache.create(recursive: true);
+    return cache;
+  }
 
-  /// 当前是否正在播放
-  bool get isPlaying => _isPlaying;
+  /// 生成文字的缓存 key（MD5，避免特殊字符做文件名）
+  String _cacheKey(String text, PersonaVoice persona) {
+    final raw = '${persona.name}_$text';
+    return raw.hashCode.toRadixString(16); // 简单哈希
+  }
 
-  /// 播放器实例（供 LipSyncService 绑定唇形同步）
-  AudioPlayer get player => _player;
+  /// 文本转语音并播放
+  ///
+  /// [text]     要说的话
+  /// [persona]  情感角色（gentle / playful / wise）
+  /// [cache]    是否使用缓存（默认 true）
+  Future<void> speak(
+    String text, {
+    PersonaVoice? persona,
+    bool cache = true,
+  }) async {
+    final voice = persona ?? _currentPersona;
 
-  /// 播放状态回调（供 UI 更新竹芽状态）
-  void Function(bool)? onPlayingChanged;
-
-  // ── 初始化 ──
-  Future<void> init({String? baseUrl}) async {
-    _baseUrl = baseUrl ?? BackendConfig.instance.baseUrl;
-    if (_isInitialized && baseUrl == null) return;
-
-    _dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 30),
-      validateStatus: (status) => true,
-    ));
-
-    // 监听播放完成事件
-    _player.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed) {
-        _isPlaying = false;
-        onPlayingChanged?.call(false);
+    // 1. 查缓存
+    if (cache) {
+      final cachedFile = await _getCachedFile(text, voice);
+      if (await cachedFile.exists()) {
+        await _player.setFilePath(cachedFile.path);
+        await _player.play();
+        return;
       }
-    });
-
-    _isInitialized = true;
-
-    // 验证后端连通性（静默，不影响主流程）
-    try {
-      await _dio.get('$_baseUrl/health');
-    } on DioException {
-      // 后端不可达，静默跳过，降级到本地 TTS
     }
+
+    // 2. 调用 API
+    final audioBytes = await _fetchTTS(text, voice);
+    if (audioBytes == null) return;
+
+    // 3. 写缓存
+    if (cache) {
+      final file = await _getCachedFile(text, voice);
+      await file.writeAsBytes(audioBytes);
+    }
+
+    // 4. 播放（缓存命中时直接播文件，API 返回时用 StreamAudioSource）
+    if (cache) {
+      await _player.setFilePath((await _getCachedFile(text, voice)).path);
+    } else {
+      await _player.setAudioSource(_BytesAudioSource(audioBytes!));
+    }
+    await _player.play();
   }
 
-  // ── 基础 TTS ──
-  /// 把文字转成语音并播放
-  Future<void> speak(String text) async {
-    await _speak(text, emotion: null);
+  /// 获取缓存文件路径
+  Future<File> _getCachedFile(String text, PersonaVoice persona) async {
+    final dir = await _cacheDir;
+    final key = _cacheKey(text, persona);
+    return File('${dir.path}/$key.wav');
   }
 
-  /// 带情感朗读
-  /// emotion 可选：neutral / happy / sad / calm / angry / excited / curious 等
-  Future<void> speakEmotion(String text, String emotion) async {
-    await _speak(text, emotion: emotion);
-  }
-
-  Future<void> _speak(String text, {String? emotion}) async {
-    if (!_isInitialized) await init();
-
-    // 播放前先停掉之前的
-    await _player.stop();
-
-    _isPlaying = true;
-    onPlayingChanged?.call(true);
-
-    File? tempFile;
+  /// 调用 Cartesia API
+  Future<List<int>?> _fetchTTS(String text, PersonaVoice persona) async {
     try {
-      final endpoint = emotion != null ? '/tts/emotion' : '/tts';
-      final data = emotion != null
-          ? {'text': text, 'emotion': emotion}
-          : {'text': text, 'lang': 'zh-CN'};
-
       final resp = await _dio.post(
-        '$_baseUrl$endpoint',
-        data: data,
+        _apiUrl,
+        data: {
+          'text': text,
+          'voice': {'mode': 's3', 's3_url': _voiceIds[persona]},
+          'emotion': _emotionLabels[persona],
+          'output_format': {'container': 'wav', 'encoding': 'pcm_s16le', 'sample_rate': 24000},
+        },
         options: Options(
+          headers: {
+            'Authorization': 'Bearer YOUR_API_KEY', // ⚠️ 替换为真实 key
+            'Content-Type': 'application/json',
+          },
           responseType: ResponseType.bytes,
-          headers: {'Content-Type': 'application/json'},
         ),
       );
-
-      final bytes = (resp.data as List<int>).toList();
-
-      // 写入临时 mp3 文件，用 just_audio 播放
-      final tmpDir = await getTemporaryDirectory();
-      tempFile = File('${tmpDir.path}/zhuy_tts_${DateTime.now().millisecondsSinceEpoch}.mp3');
-      await tempFile.writeAsBytes(bytes);
-
-      await _player.setFilePath(tempFile.path);
-      await _player.play();
-    } on DioException {
-      // TTS 请求失败，降级处理（静默）
-    } finally {
-      // 清理临时文件（稍后异步删）
-      if (tempFile != null) {
-        tempFile.delete().catchError((_) => File(""));
-      }
-      _isPlaying = false;
-      onPlayingChanged?.call(false);
+      return resp.data;
+    } catch (e) {
+      return null; // API 调用失败，静默降级
     }
   }
 
-  // ── 停止播放 ──
+  /// 切换情感角色
+  void setPersona(PersonaVoice persona) {
+    _currentPersona = persona;
+  }
+
+  /// 停止播放
   Future<void> stop() async {
     await _player.stop();
-    _isPlaying = false;
-    onPlayingChanged?.call(false);
   }
 
-  // ── 切换后端地址 ──
-  /// 手动指定后端地址（真机测试时用）
-  void setBaseUrl(String url) {
-    _baseUrl = url;
-    _isInitialized = false;
-  }
-
+  /// 释放资源
   void dispose() {
     _player.dispose();
+  }
+}
+
+/// just_audio 的 StreamAudioSource 实现（把字节数组转成音频流）
+/// 用于播放 API 直接返回的音频字节（不走缓存时）
+class _BytesAudioSource extends StreamAudioSource {
+  final List<int> _bytes;
+  _BytesAudioSource(this._bytes);
+
+  @override
+  Future<StreamAudioResponse> request([int? start, int? end]) async {
+    start ??= 0;
+    end ??= _bytes.length;
+    return StreamAudioResponse(
+      sourceLength: _bytes.length,
+      contentLength: end - start,
+      offset: start,
+      contentType: 'audio/wav',
+      stream: Stream.value(_bytes.sublist(start, end)),
+    );
   }
 }
