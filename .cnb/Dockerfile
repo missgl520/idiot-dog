@@ -31,20 +31,33 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Flutter SDK（Git 克隆 shallow + 按需下载）
-# 用 --filter=blob:none：只拉元数据，文件按需下载
-# 避免下载 693MB tarball 超时（10min Docker 构建限制）
+# ── Flutter SDK（Git 克隆 shallow）───────────────────────────
 RUN git clone --depth 1 --branch ${FLUTTER_VERSION} \
         --filter=blob:none \
         https://github.com/flutter/flutter.git \
         ${FLUTTER_SDK}
 
-# ── 预缓存 Flutter 平台文件 ─────────────────────────────────
-# flutter precache 会按需下载必要二进制（比全量 tarball 小很多）
-RUN flutter precache --no-ios --no-fuchsia --no-linux --no-macos --no-windows --no-web \
+# ── Gradle-wrapper 预下载（镜像 + --no-same-owner 解压）
+# Flutter precache 需要 gradle-wrapper.tgz，但 Docker rootless 环境
+# tar 解压会报 "Cannot change ownership" 导致 precache 失败
+# 解决：提前用镜像下载，用 --no-same-owner 解压到目标路径
+ENV GRADLE_WRAPPER_HASH=fd5c1f2c013565a3bea56ada6df9d2b8e96d56aa
+RUN mkdir -p ${FLUTTER_SDK}/bin/cache/downloads/storage.googleapis.com/flutter_infra_release/gradle-wrapper && \
+    wget -q --timeout=60 \
+        "https://storage.flutter-io.cn/flutter_infra_release/gradle-wrapper/${GRADLE_WRAPPER_HASH}/gradle-wrapper.tgz" \
+        -O /tmp/gradle-wrapper.tgz && \
+    mkdir -p ${FLUTTER_SDK}/bin/cache/artifacts/gradle_wrapper && \
+    tar xzf /tmp/gradle-wrapper.tgz \
+        -C ${FLUTTER_SDK}/bin/cache/artifacts/gradle_wrapper/ \
+        --no-same-owner && \
+    rm /tmp/gradle-wrapper.tgz || true
+
+# ── Flutter precache（核心缓存预热）─────────────────────────
+# 只下载 engine + dart-sdk（不需要 Android/iOS/Web/Fuchsia）
+RUN flutter precache --no-android --no-ios --no-fuchsia --no-linux --no-macos --no-windows --no-web || true \
     && flutter config --no-analytics
 
-# ── Android SDK 命令行工具（dl.google.com）──────────────────
+# ── Android SDK 命令行工具（dl.google.com）───────────────────
 ENV ANDROID_SDK_VERSION=11076708
 ENV BUILD_TOOLS_VERSION=34.0.0
 
@@ -57,7 +70,7 @@ RUN mkdir -p ${ANDROID_SDK_CMDLINE_TOOLS} \
     && mv cmdline-tools ${ANDROID_SDK_CMDLINE_TOOLS}/latest \
     && rm cmdline-tools.zip
 
-# ── 安装 Android SDK 组件 ───────────────────────────────────
+# ── 安装 Android SDK 组件 ────────────────────────────────────
 RUN yes | ${ANDROID_SDK_CMDLINE_TOOLS}/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true \
     && ${ANDROID_SDK_CMDLINE_TOOLS}/latest/bin/sdkmanager --install \
         "platform-tools" \
