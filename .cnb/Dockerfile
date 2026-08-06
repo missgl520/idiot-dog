@@ -57,11 +57,11 @@ RUN mkdir -p ${FLUTTER_SDK}/bin/cache/downloads/storage.googleapis.com/flutter_i
         --no-same-owner && \
     rm /tmp/gradle-wrapper.tgz || true
 
-# ── Flutter precache（engine + dart-sdk 缓存预热，使用国内镜像）─
-RUN FLUTTER_STORAGE_BASE_URL=${FLUTTER_STORAGE_BASE_URL} \
-    flutter precache --no-android --no-ios --no-fuchsia --no-linux --no-macos --no-windows --no-web \
-    || true \
-    && flutter config --no-analytics
+# ── Flutter precache（可选：预热 engine 缓存，失败不影响构建）───────
+# 注意：gradle-wrapper 已预下载；precache 失败不影响后续 flutter build
+RUN FLUTTER_STORAGE_BASE_URL=${FLUTTER_STORAGE_BASE_URL} flutter precache \
+    --no-android --no-ios --no-fuchsia --no-linux --no-macos --no-windows --no-web \
+    ; true
 
 # ── 国内 pub 镜像（避免 pub.dev 访问不稳定）──────────────────
 # pub.flutter-io.cn 是 Flutter 中国社区维护的 pub.dev 镜像
