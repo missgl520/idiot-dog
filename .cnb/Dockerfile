@@ -1,6 +1,6 @@
 # ============================================================
 # zhuyu Flutter Android CI/CD 构建镜像
-# 基于 Ubuntu 22.04 + Flutter + Android SDK（国内镜像）
+# 基于 Ubuntu 22.04 + Flutter（Git 克隆）+ Android SDK
 # ============================================================
 FROM ubuntu:22.04
 
@@ -31,19 +31,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Flutter SDK（国内镜像）──────────────────────────────────
-RUN mkdir -p ${FLUTTER_SDK} \
-    && cd ${FLUTTER_SDK} \
-    && wget -q --timeout=300 \
-        "https://storage.flutter-io.cn/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz" \
-        -O flutter.tar.xz \
-    && tar xf flutter.tar.xz --strip-components=1 \
-    && rm flutter.tar.xz
+# ── Flutter SDK（Git 克隆 shallow + 按需下载）
+# 用 --filter=blob:none：只拉元数据，文件按需下载
+# 避免下载 693MB tarball 超时（10min Docker 构建限制）
+RUN git clone --depth 1 --branch ${FLUTTER_VERSION} \
+        --filter=blob:none \
+        https://github.com/flutter/flutter.git \
+        ${FLUTTER_SDK}
 
-RUN flutter precache --no-android --no-ios --no-fuchsia --no-linux --no-macos --no-windows --no-web 2>/dev/null || true \
+# ── 预缓存 Flutter 平台文件 ─────────────────────────────────
+# flutter precache 会按需下载必要二进制（比全量 tarball 小很多）
+RUN flutter precache --no-ios --no-fuchsia --no-linux --no-macos --no-windows --no-web \
     && flutter config --no-analytics
 
-# ── Android SDK 命令行工具（腾讯云镜像）────────────────────
+# ── Android SDK 命令行工具（dl.google.com）──────────────────
 ENV ANDROID_SDK_VERSION=11076708
 ENV BUILD_TOOLS_VERSION=34.0.0
 
