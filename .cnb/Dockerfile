@@ -9,7 +9,7 @@ ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
 # ── Flutter SDK ──────────────────────────────────────────────
-ENV FLUTTER_VERSION=3.24.6
+ENV FLUTTER_VERSION=3.24.5
 ENV FLUTTER_SDK=/opt/flutter
 ENV PATH=${FLUTTER_SDK}/bin:${PATH}
 
@@ -50,7 +50,7 @@ ENV BUILD_TOOLS_VERSION=34.0.0
 RUN mkdir -p ${ANDROID_SDK_CMDLINE_TOOLS} \
     && cd /tmp \
     && wget -q --timeout=300 \
-        "https://mirrors.cloud.tencent.com/android/repository/commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip" \
+        "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip" \
         -O cmdline-tools.zip \
     && unzip -q cmdline-tools.zip \
     && mv cmdline-tools ${ANDROID_SDK_CMDLINE_TOOLS}/latest \
