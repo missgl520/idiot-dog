@@ -1,0 +1,125 @@
+# ============================================================
+# 竹芽（zhuyu）CNB 流水线
+# 触发：main 分支 push
+# 构建产物：Flutter Android Debug APK
+#
+# 架构：
+#   - docker.build: 用本地 .cnb/Dockerfile 构建镜像（无需预置镜像）
+#   - volumes: 挂载 pub 缓存，加速依赖下载
+#   - 多架构并行：ARM64 + AMD64 两条流水线同时跑
+# ============================================================
+
+main:
+  push:
+
+    # ── ARM64 架构 ─────────────────────────────────────────
+    # 适用：Apple Silicon Mac / ARM 云服务器 / 部分移动设备
+    - name: flutter-apk-arm64
+      runner:
+        tags: cnb:arch:default
+        cpus: 4
+      docker:
+        build:
+          dockerfile: .cnb/Dockerfile
+          # pubspec.lock 变化时才重建镜像（缓存复用）
+          by:
+            - pubspec.lock
+          versionBy:
+            - pubspec.lock
+        volumes:
+          - pub-cache:/root/.pub-cache:copy-on-write
+      stages:
+        - name: check-env
+          jobs:
+            - name: flutter-version
+              script: |
+                flutter --version
+                flutter doctor | head -10
+            - name: android-licenses
+              script: |
+                yes | flutter doctor --android-licenses > /dev/null 2>&1 || true
+        - name: deps
+          jobs:
+            - name: pub-get
+              script: |
+                flutter config --machine
+                flutter pub get
+        - name: analyze
+          jobs:
+            - name: static-check
+              script: |
+                flutter analyze lib/ --no-fatal-infos --no-fatal-warnings || true
+        - name: build
+          jobs:
+            - name: assemble-debug
+              script: |
+                # 单架构构建，避免 OOM
+                flutter build apk --debug \
+                  --target-platform=android-arm64 \
+                  --no-pub
+                echo "=== APK 产物 ==="
+                ls -lh build/app/outputs/flutter-apk/
+        - name: artifact
+          jobs:
+            - name: record
+              script: |
+                echo "CNB_COMMIT=${CNB_COMMIT_SHA:-unknown}"
+                echo "CNB_BRANCH=${CNB_BRANCH:-main}"
+                APK=$(find build/app/outputs/flutter-apk -name "*.apk" | head -1)
+                echo "APK_FILE=${APK}"
+                echo "APK_SIZE=$(du -h ${APK} 2>/dev/null | cut -f1)"
+
+    # ── AMD64 架构 ─────────────────────────────────────────
+    # 适用：Intel/AMD Linux 云服务器 / x86_64 构建节点
+    - name: flutter-apk-amd64
+      runner:
+        tags: cnb:arch:amd64
+        cpus: 4
+      docker:
+        build:
+          dockerfile: .cnb/Dockerfile
+          by:
+            - pubspec.lock
+          versionBy:
+            - pubspec.lock
+        volumes:
+          - pub-cache:/root/.pub-cache:copy-on-write
+      stages:
+        - name: check-env
+          jobs:
+            - name: flutter-version
+              script: |
+                flutter --version
+                flutter doctor | head -10
+            - name: android-licenses
+              script: |
+                yes | flutter doctor --android-licenses > /dev/null 2>&1 || true
+        - name: deps
+          jobs:
+            - name: pub-get
+              script: |
+                flutter config --machine
+                flutter pub get
+        - name: analyze
+          jobs:
+            - name: static-check
+              script: |
+                flutter analyze lib/ --no-fatal-infos --no-fatal-warnings || true
+        - name: build
+          jobs:
+            - name: assemble-debug
+              script: |
+                flutter build apk --debug \
+                  --target-platform=android-x64 \
+                  --no-pub
+                echo "=== APK 产物 ==="
+                ls -lh build/app/outputs/flutter-apk/
+        - name: artifact
+          jobs:
+            - name: record
+              script: |
+                echo "CNB_COMMIT=${CNB_COMMIT_SHA:-unknown}"
+                echo "CNB_BRANCH=${CNB_BRANCH:-main}"
+                APK=$(find build/app/outputs/flutter-apk -name "*.apk" | head -1)
+                echo "APK_FILE=${APK}"
+                echo "APK_SIZE=$(du -h ${APK} 2>/dev/null | cut -f1)"
