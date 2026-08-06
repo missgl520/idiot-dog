@@ -9,9 +9,15 @@ ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
 # ── Flutter SDK ──────────────────────────────────────────────
-ENV FLUTTER_VERSION=3.24.5
+# 注意：与本地 Flutter 3.44.6 保持一致（Dart 3.12.2）
+ENV FLUTTER_VERSION=3.44.6
 ENV FLUTTER_SDK=/opt/flutter
 ENV PATH=${FLUTTER_SDK}/bin:${PATH}
+# ── 国内镜像（全链路加速）───────────────────────────────
+# Flutter 工具链下载（engine、dart-sdk、gradle-wrapper）
+ENV FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn/flutter_infra_release
+# pub 包下载（riverpod、hive 等所有 pub.dev 包）
+ENV PUB_HOSTED_URL=https://pub.flutter-io.cn
 
 # ── Android SDK ──────────────────────────────────────────────
 ENV ANDROID_SDK_ROOT=/opt/android-sdk
@@ -37,14 +43,13 @@ RUN git clone --depth 1 --branch ${FLUTTER_VERSION} \
         https://github.com/flutter/flutter.git \
         ${FLUTTER_SDK}
 
-# ── Gradle-wrapper 预下载（镜像 + --no-same-owner 解压）
-# Flutter precache 需要 gradle-wrapper.tgz，但 Docker rootless 环境
-# tar 解压会报 "Cannot change ownership" 导致 precache 失败
-# 解决：提前用镜像下载，用 --no-same-owner 解压到目标路径
+# ── Gradle-wrapper 预下载（镜像 + --no-same-owner 解压）─────
+# 镜像: https://storage.flutter-io.cn/flutter_infra_release/
+# 3.44.6 的 gradle-wrapper hash:
 ENV GRADLE_WRAPPER_HASH=fd5c1f2c013565a3bea56ada6df9d2b8e96d56aa
 RUN mkdir -p ${FLUTTER_SDK}/bin/cache/downloads/storage.googleapis.com/flutter_infra_release/gradle-wrapper && \
     wget -q --timeout=60 \
-        "https://storage.flutter-io.cn/flutter_infra_release/gradle-wrapper/${GRADLE_WRAPPER_HASH}/gradle-wrapper.tgz" \
+        "${FLUTTER_STORAGE_BASE_URL}/gradle-wrapper/${GRADLE_WRAPPER_HASH}/gradle-wrapper.tgz" \
         -O /tmp/gradle-wrapper.tgz && \
     mkdir -p ${FLUTTER_SDK}/bin/cache/artifacts/gradle_wrapper && \
     tar xzf /tmp/gradle-wrapper.tgz \
@@ -52,10 +57,16 @@ RUN mkdir -p ${FLUTTER_SDK}/bin/cache/downloads/storage.googleapis.com/flutter_i
         --no-same-owner && \
     rm /tmp/gradle-wrapper.tgz || true
 
-# ── Flutter precache（核心缓存预热）─────────────────────────
-# 只下载 engine + dart-sdk（不需要 Android/iOS/Web/Fuchsia）
-RUN flutter precache --no-android --no-ios --no-fuchsia --no-linux --no-macos --no-windows --no-web || true \
+# ── Flutter precache（engine + dart-sdk 缓存预热，使用国内镜像）─
+RUN FLUTTER_STORAGE_BASE_URL=${FLUTTER_STORAGE_BASE_URL} \
+    flutter precache --no-android --no-ios --no-fuchsia --no-linux --no-macos --no-windows --no-web \
+    || true \
     && flutter config --no-analytics
+
+# ── 国内 pub 镜像（避免 pub.dev 访问不稳定）──────────────────
+# pub.flutter-io.cn 是 Flutter 中国社区维护的 pub.dev 镜像
+RUN flutter config set pub-preloader https://pub.flutter-io.cn/ \
+    || true
 
 # ── Android SDK 命令行工具（dl.google.com）───────────────────
 ENV ANDROID_SDK_VERSION=11076708
