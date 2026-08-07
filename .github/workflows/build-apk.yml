@@ -9,7 +9,6 @@ on:
 
 jobs:
   build:
-    # 在最新的 Ubuntu 运行器上执行
     runs-on: ubuntu-latest
 
     steps:
@@ -24,42 +23,48 @@ jobs:
           flutter-version: '3.44.6'
           channel: 'stable'
 
-      # 3. 安装 JDK 17（Android 构建需要）
+      # 3. 安装 JDK 17
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 4. 缓存 Flutter 依赖（pub-cache），加速后续构建
+      # 4. 禁用缓存（避免旧插件残留导致构建失败）
       - name: Cache Flutter
         uses: actions/cache@v4
         with:
           path: ~/.pub-cache
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-
+          key: never-${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: never-
 
-      # 5. 清理并拉取 Flutter 项目依赖
-      # flutter clean 强制重新生成 GeneratedPluginRegistrant.java 等产物
+      # 5. 设置国内镜像（GitHub Actions 在美国服务器，直连 pub.dev 慢）
+      - name: Configure China mirrors
+        run: |
+          # Flutter 工具链镜像
+          echo "FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn/flutter_infra_release" >> $GITHUB_ENV
+          # pub 包镜像
+          echo "PUB_HOSTED_URL=https://pub.flutter-io.cn" >> $GITHUB_ENV
+
+      # 6. 清理并拉取 Flutter 项目依赖
       - name: Get dependencies
         run: |
           flutter clean
           flutter pub get
 
-      # 5.5 修复 flutter_live2d 插件硬编码的 CMake 3.10.2 版本
-      # GitHub Actions 运行器预装 CMake 3.22.1，但插件要求 3.10.2 精确匹配
+      # 7. 修复 flutter_live2d 插件硬编码的 CMake 3.10.2 版本
+      # GitHub Actions 运行器预装 CMake 3.22.1，插件要求精确匹配
       - name: Patch flutter_live2d CMake version
         run: |
           PUB_CACHE="${PUB_CACHE:-$HOME/.pub-cache}"
-          sed -i 's/version = "3\.10\.2"/version = "3\.22\.1"/' \
+          sed -i 's/version = "3\.10\.2"/version = "3.22.1"/' \
             "$PUB_CACHE/hosted/pub.dev/flutter_live2d-1.0.2/android/build.gradle.kts"
 
-      # 6. 构建 Debug APK
+      # 8. 构建 Debug APK
       - name: Build debug APK
         run: flutter build apk --debug
 
-      # 7. 上传构建产物为 GitHub Actions Artifact，保留 7 天
+      # 9. 上传构建产物（保留 7 天）
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -67,7 +72,7 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 7
 
-      # 8. 手动触发时，创建 GitHub Release 并上传 APK
+      # 10. 手动触发时创建 Release
       - name: Create Release
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v1
