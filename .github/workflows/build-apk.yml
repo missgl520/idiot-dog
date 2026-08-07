@@ -53,12 +53,15 @@ jobs:
           flutter pub get
 
       # 7. 修复 flutter_live2d 插件硬编码的 CMake 3.10.2 版本
-      # GitHub Actions 运行器预装 CMake 3.22.1，插件要求精确匹配
+      # flutter pub get 会从 PUB_HOSTED_URL 镜像下载，路径可能是 pub.dev 或 pub.flutter-io.cn
       - name: Patch flutter_live2d CMake version
         run: |
           PUB_CACHE="${PUB_CACHE:-$HOME/.pub-cache}"
-          sed -i 's/version = "3\.10\.2"/version = "3.22.1"/' \
-            "$PUB_CACHE/hosted/pub.dev/flutter_live2d-1.0.2/android/build.gradle.kts"
+          GRADLE_FILE="$PUB_CACHE/hosted/pub.dev/flutter_live2d-1.0.2/android/build.gradle.kts"
+          if [ ! -f "$GRADLE_FILE" ]; then
+            GRADLE_FILE="$PUB_CACHE/hosted/pub.flutter-io.cn/flutter_live2d-1.0.2/android/build.gradle.kts"
+          fi
+          sed -i 's/version = "3\.10\.2"/version = "3.22.1"/' "$GRADLE_FILE"
 
       # 8. 构建 Debug APK
       - name: Build debug APK
