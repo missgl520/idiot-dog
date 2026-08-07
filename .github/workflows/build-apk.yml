@@ -21,7 +21,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.8'
+          flutter-version: '3.44.6'
           channel: 'stable'
 
       # 3. 安装 JDK 17（Android 构建需要）
@@ -40,9 +40,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-flutter-
 
-      # 5. 拉取 Flutter 项目依赖
+      # 5. 清理并拉取 Flutter 项目依赖
+      # flutter clean 强制重新生成 GeneratedPluginRegistrant.java 等产物
       - name: Get dependencies
-        run: flutter pub get
+        run: |
+          flutter clean
+          flutter pub get
 
       # 5.5 修复 flutter_live2d 插件硬编码的 CMake 3.10.2 版本
       # GitHub Actions 运行器预装 CMake 3.22.1，但插件要求 3.10.2 精确匹配
