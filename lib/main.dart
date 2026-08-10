@@ -25,7 +25,7 @@ void main() async {
   // 首次启动：写入穿透后端地址（localtunnel 每次重启会变，需同步更新）
   // 生产环境可改为固定 ngrok/cloudflare tunnel 地址
   if (Hive.box('settings').get('backendUrl') == null) {
-    Hive.box('settings').put('backendUrl', 'https://warm-paws-press.loca.lt');
+    Hive.box('settings').put('backendUrl', 'https://mature-are-blocking-centres.trycloudflare.com');
   }
 
   // Riverpod 跨组件状态管理，child 能通过 ref.watch/read 获取 providers
