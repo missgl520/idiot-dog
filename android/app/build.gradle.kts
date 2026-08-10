@@ -9,7 +9,7 @@ android {
     // 应用的命名空间，需与 AndroidManifest.xml 中的 package 保持一致
     namespace = "com.zhuyapp.zhuyapp"
     // 编译 SDK 版本由 Flutter 工具自动提供
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     // NDK 版本由 Flutter 工具自动提供
     ndkVersion = flutter.ndkVersion
 
@@ -26,7 +26,7 @@ android {
         // 原因：flutter_live2d 插件依赖 OpenGL ES 2.0，最低需要 Android 7.0
         minSdk = 24
         // 目标 SDK 版本由 Flutter 工具自动提供
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         // 版本号和版本名称由 Flutter 工具自动提供（来自 pubspec.yaml）
         versionCode = flutter.versionCode
         versionName = flutter.versionName
