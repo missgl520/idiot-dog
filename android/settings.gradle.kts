@@ -32,9 +32,10 @@ plugins {
     // Flutter 插件加载器
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     // Android 应用插件（仅声明，不应用）
-    id("com.android.application") version "9.0.1" apply false
+    // AGP 8.7.3 与 Gradle 9.1 兼容，compileSdk 接受 Int
+    id("com.android.application") version "8.7.3" apply false
     // Kotlin Android 插件（仅声明，不应用）
-    id("org.jetbrains.kotlin.android") version "2.3.20" apply false
+    id("org.jetbrains.kotlin.android") version "2.0.21" apply false
 }
 
 // 包含 app 模块
