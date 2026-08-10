@@ -1,7 +1,6 @@
 # GitHub Actions 工作流：构建竹芽 Android APK
 name: Build APK
 
-# 触发条件：main 分支推送 或 手动触发
 on:
   push:
     branches: [main]
@@ -12,76 +11,65 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 检出仓库代码
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. 安装 Flutter SDK
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.6'
           channel: 'stable'
 
-      # 3. 安装 JDK 17
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 4. 禁用缓存（避免旧插件残留导致构建失败）
-      - name: Cache Flutter
+      # 缓存 Gradle（避免每次重下载）
+      - name: Cache Gradle
         uses: actions/cache@v4
         with:
-          path: ~/.pub-cache
-          key: never-${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: never-
+          path: ~/.gradle/caches
+          key: gradle-cache-${{ runner.os }}
 
-      # 5. 设置国内镜像（GitHub Actions 在美国服务器，直连 pub.dev 慢）
+      # 设置国内镜像
       - name: Configure China mirrors
         run: |
-          # Flutter 工具链镜像
           echo "FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn/flutter_infra_release" >> $GITHUB_ENV
-          # pub 包镜像
           echo "PUB_HOSTED_URL=https://pub.flutter-io.cn" >> $GITHUB_ENV
 
-      # 6. 清理并拉取 Flutter 项目依赖
+      # Gradle 网络超时改为 5 分钟（国内网络慢）
+      - name: Increase Gradle timeout
+        run: |
+          sed -i 's/networkTimeout=120000/networkTimeout=300000/' android/gradle/wrapper/gradle-wrapper.properties
+
       - name: Get dependencies
         run: |
           flutter clean
           flutter pub get
 
-      # 7. 修复 flutter_live2d 插件硬编码的 CMake 3.10.2 版本
-      # flutter pub get 会从 PUB_HOSTED_URL 镜像下载，路径可能是 pub.dev 或 pub.flutter-io.cn
+      # 修复 flutter_live2d 硬编码的 CMake 3.10.2 版本
+      # 兼容 pub.dev 和 pub.flutter-io.cn 两种镜像路径
       - name: Patch flutter_live2d CMake version
         run: |
+          set -e
           PUB_CACHE="${PUB_CACHE:-$HOME/.pub-cache}"
-          GRADLE_FILE="$PUB_CACHE/hosted/pub.dev/flutter_live2d-1.0.2/android/build.gradle.kts"
-          if [ ! -f "$GRADLE_FILE" ]; then
-            GRADLE_FILE="$PUB_CACHE/hosted/pub.flutter-io.cn/flutter_live2d-1.0.2/android/build.gradle.kts"
+          GRADLE_FILE=$(find "$PUB_CACHE" -path "*flutter_live2d-1.0.2/android/build.gradle.kts" 2>/dev/null | head -1)
+          echo "Found gradle file: $GRADLE_FILE"
+          if [ -n "$GRADLE_FILE" ] && grep -q 'version = "3\.10\.2"' "$GRADLE_FILE"; then
+            sed -i 's/version = "3\.10\.2"/version = "3.22.1"/' "$GRADLE_FILE"
+            echo "✅ CMake version patched"
+          else
+            echo "⚠️  Not found or already patched, skipping"
           fi
-          sed -i 's/version = "3\.10\.2"/version = "3.22.1"/' "$GRADLE_FILE"
 
-      # 8. 构建 Debug APK
       - name: Build debug APK
         run: flutter build apk --debug
 
-      # 9. 上传构建产物（保留 7 天）
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: zhuyapp-debug
+          name: zhuyapp-debug-${{ github.run_number }}
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 7
-
-      # 10. 手动触发时创建 Release
-      - name: Create Release
-        if: github.event_name == 'workflow_dispatch'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v1.0.0-test
-          files: build/app/outputs/flutter-apk/app-debug.apk
-          name: 竹芽 Debug APK
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
