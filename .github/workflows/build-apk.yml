@@ -35,10 +35,9 @@ jobs:
             ~/.gradle/wrapper/dists
           key: gradle-${{ runner.os }}-v2
 
-      # 设置国内镜像（CI 在美国服务器，直连 pub.dev 慢）
-      - name: Configure China mirrors
+      # pub.dev 国内慢，需要镜像；Flutter 引擎二进制从 Google Storage 直下（CI 在美国，直连快）
+      - name: Configure pub mirror
         run: |
-          echo "FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn/flutter_infra_release" >> $GITHUB_ENV
           echo "PUB_HOSTED_URL=https://pub.flutter-io.cn" >> $GITHUB_ENV
 
       - name: Get dependencies
