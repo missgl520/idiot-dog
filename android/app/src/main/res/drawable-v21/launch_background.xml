@@ -1,17 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    启动背景（Launch Background）— API 21+ 版本
-    在 Flutter 第一帧绘制完成前，用户看到的启动画面。
-    这里使用系统默认背景色（跟随系统主题）；如需自定义 Logo，可取消下方 bitmap 注释。
--->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 窗口背景色：跟随当前主题背景色 -->
-    <item android:drawable="?android:colorBackground" />
-
-    <!-- 可在此插入自定义启动图片资源 -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+    <!-- 白色背景 + 竹芽图标 -->
+    <item android:drawable="@drawable/splash_icon" />
 </layer-list>
