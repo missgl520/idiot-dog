@@ -656,7 +656,7 @@ class _Live2DModelPickerDialogState
 
     try {
       // 打开目录选择器（仅限目录）
-      final result = await FilePicker.getDirectoryPath(
+      final result = await FilePicker.platform.getDirectoryPath(
         dialogTitle: '选择 Live2D 模型文件夹',
       );
 
