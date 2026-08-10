@@ -37,7 +37,7 @@ class TtsService {
     // 阻塞等待播完，避免 AI 回复和语音交叉
     await _tts.awaitSpeakCompletion(true);
 
-    // 回调：记录播放状态（供 UI 显示竹芽"在说"）
+    // 回调：记录播放状态（供 UI 显示竹笌"在说"）
     _tts.setStartHandler(()  => _isPlaying = true);
     _tts.setCompletionHandler(() => _isPlaying = false);
     _tts.setErrorHandler((_) => _isPlaying = false);

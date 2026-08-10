@@ -6,7 +6,7 @@
 //
 // 菜单项（从上到下）：
 //   1. 拖拽条（装饰横条，居中，灰色）
-//   2. 关于竹芽
+//   2. 关于竹笌
 //   3. 声音设置
 //   4. 语音设置
 //   5. 模型设置
@@ -55,7 +55,7 @@ class SettingsSheet extends ConsumerWidget {
 
             // ── 菜单项列表 ──
             _MenuItem(
-              title: '关于竹芽',
+              title: '关于竹笌',
               icon: Icons.info_outline,
               expanded: expanded == 'about',
               onTap: () => _toggle(ref, 'about'),
@@ -198,7 +198,7 @@ class _MenuItem extends ConsumerWidget {
   }
 }
 
-// ── 关于竹芽 内容 ──
+// ── 关于竹笌 内容 ──
 class _AboutContent extends StatelessWidget {
   const _AboutContent();
 
@@ -234,7 +234,7 @@ class _AboutContent extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '竹芽',
+                            '竹笌',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                           ),
                           SizedBox(height: 2),
@@ -249,7 +249,7 @@ class _AboutContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  '竹芽是一个情感陪伴 AI，随时倾听你的心声。',
+                  '竹笌是一个情感陪伴 AI，随时倾听你的心声。',
                   style: TextStyle(fontSize: 14, height: 1.6),
                 ),
               ],

@@ -316,10 +316,10 @@ class MessagesNotifier extends StateNotifier<List<Message>> {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 竹芽状态机（Legacy 版，新代码请用 chat_provider.dart）
+// 竹笌状态机（Legacy 版，新代码请用 chat_provider.dart）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/// 竹芽对话状态
+/// 竹笌对话状态
 enum ZhuaStatus {
   idle,     // 空闲，等待用户输入
   thinking, // 思考中（后端推理中）

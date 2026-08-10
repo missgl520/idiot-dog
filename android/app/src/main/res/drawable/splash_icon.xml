@@ -2,7 +2,7 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 白色背景（和 App 整体背景一致） -->
     <item android:drawable="@android:color/white" />
-    <!-- 中央竹芽图标 -->
+    <!-- 中央竹笌图标 -->
     <item
         android:gravity="center"
         android:width="192dp"

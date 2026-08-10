@@ -1,5 +1,5 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ZhuaLive2DController - 竹芽 Live2D 全局控制器
+// ZhuaLive2DController - 竹笌 Live2D 全局控制器
 //
 // 单例模式：全局唯一，整个 App 共享
 //
@@ -20,11 +20,11 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_live2d/flutter_live2d.dart';
 
-/// 竹芽的 Live2D 动画状态
+/// 竹笌的 Live2D 动画状态
 enum ZhuaLive2DStatus {
   idle,      // 待机
   thinking,  // 等回复
-  speaking,  // 竹芽在说话（TTS）
+  speaking,  // 竹笌在说话（TTS）
   listening, // 用户在说话（ASR）
 }
 
@@ -62,7 +62,7 @@ class ZhuaLive2DController {
   bool get modelLoaded => _modelLoaded;
   bool get disposed => _disposed;
 
-  /// 初始化并加载竹芽 Live2D 模型
+  /// 初始化并加载竹笌 Live2D 模型
   Future<void> init() async {
     if (_modelLoaded || _disposed) return;
     try {
@@ -82,7 +82,7 @@ class ZhuaLive2DController {
     }
   }
 
-  /// 根据竹芽状态播放对应动画和表情
+  /// 根据竹笌状态播放对应动画和表情
   Future<void> setStatus(ZhuaLive2DStatus status) async {
     if (!_modelLoaded || _disposed) return;
     // 长按状态中不打断
@@ -266,7 +266,7 @@ class ZhuaLive2DController {
     });
   }
 
-  /// 单击竹芽身体：随机播放 tap_body 动画
+  /// 单击竹笌身体：随机播放 tap_body 动画
   Future<void> playTap() async {
     if (!_modelLoaded || _disposed) return;
     await viewController.startMotion(

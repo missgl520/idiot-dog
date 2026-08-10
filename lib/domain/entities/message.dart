@@ -11,7 +11,7 @@
 //
 // 字段说明：
 //   id          消息唯一标识（UUID）
-//   role        角色：'user' 用户 | 'assistant' 竹芽
+//   role        角色：'user' 用户 | 'assistant' 竹笌
 //   content     消息正文
 //   timestamp   时间戳（客户端本地时间）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -25,7 +25,7 @@ import 'package:flutter/foundation.dart';
 /// final msg = Message(
 ///   id: 'msg-001',
 ///   role: 'user',
-///   content: '你好呀竹芽',
+///   content: '你好呀竹笌',
 ///   timestamp: DateTime.now(),
 /// );
 /// ```
@@ -36,7 +36,7 @@ class Message {
 
   /// 角色
   /// - 'user'       用户发送的消息
-  /// - 'assistant'  竹芽回复的消息
+  /// - 'assistant'  竹笌回复的消息
   final String role;
 
   /// 消息正文内容
@@ -45,7 +45,7 @@ class Message {
   /// 消息创建时间（本地时间，非 UTC）
   final DateTime timestamp;
 
-  /// 竹芽是否正在"正在输入"中（流式输出时为 true）
+  /// 竹笌是否正在"正在输入"中（流式输出时为 true）
   final bool isStreaming;
 
   /// 情绪标签（来自后端情绪识别）
@@ -68,7 +68,7 @@ class Message {
   /// 是否为用户消息
   bool get isUser => role == 'user';
 
-  /// 是否为竹芽消息
+  /// 是否为竹笌消息
   bool get isAssistant => role == 'assistant';
 
   /// 是否正在流式输出中

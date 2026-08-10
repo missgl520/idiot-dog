@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 应用根节点：定义应用名称、图标、主入口等 -->
     <application
-        android:label="竹芽"
+        android:label="竹笌"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

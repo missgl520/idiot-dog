@@ -10,11 +10,11 @@
 //   长按头/脸区域      → 持续害羞表情（松开恢复）
 //   长按身体区域       → 持续摇晃动画（松开恢复）
 //
-// 竹芽状态 → 动画映射：
+// 竹笌状态 → 动画映射：
 //   idle        → idle 待机动画（循环）+ f01 表情
 //   thinking    → f02 表情（等 AI 回复）
-//   speaking    → tap_body 动画 + f03 表情（竹芽在说话）
-//   listening   → f04 表情（用户在说话，竹芽专注）
+//   speaking    → tap_body 动画 + f03 表情（竹笌在说话）
+//   listening   → f04 表情（用户在说话，竹笌专注）
 //
 // 模型：assets/live2d/zhuyabudoll/
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -23,7 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_live2d/flutter_live2d.dart';
 import 'live2d_controller.dart';
 
-/// 竹芽 Live2D 虚拟角色 Widget
+/// 竹笌 Live2D 虚拟角色 Widget
 ///
 /// 必须配合 ZhuaLive2DController 使用：
 ///   final controller = ref.read(live2dControllerProvider);

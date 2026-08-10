@@ -27,7 +27,7 @@ import '../../domain/entities/message.dart' as domain;
 /// 用法示例：
 /// ```dart
 /// final ok = await BackendService.instance.healthCheck();
-/// await BackendService.instance.syncWakeWord('竹芽');
+/// await BackendService.instance.syncWakeWord('竹笌');
 /// ```
 class BackendService {
   BackendService._();

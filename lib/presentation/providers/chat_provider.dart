@@ -43,7 +43,7 @@ enum ConversationStatus {
   /// 打字中：后端正在流式输出文字
   writing,
 
-  /// 播音中：竹芽正在播放 TTS 语音
+  /// 播音中：竹笌正在播放 TTS 语音
   speaking,
 }
 
@@ -139,7 +139,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       error: null,
     );
 
-    // 2. 流式接收竹芽回复
+    // 2. 流式接收竹笌回复
     String fullText = '';
 
     await for (final event in _repository.sendMessageStream(

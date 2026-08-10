@@ -1,5 +1,5 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 竹芽主页 - 信纸式对话
+// 竹笌主页 - 信纸式对话
 //
 // 新架构（v2）：
 //   UI → ChatNotifier → ChatRepository → BackendApiDataSource → 后端
@@ -241,7 +241,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
             child: Row(
               children: [
                 Text(
-                  '竹芽',
+                  '竹笌',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -346,7 +346,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
           ),
           const SizedBox(height: 16),
           Text(
-            status == ConversationStatus.idle ? '竹芽在这里' : '竹芽在等你',
+            status == ConversationStatus.idle ? '竹笌在这里' : '竹笌在等你',
             style: TextStyle(
               fontSize: 15,
               color: Theme.of(context).textTheme.bodySmall?.color,
@@ -417,7 +417,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                       enabled: !isWorking,
                       style: Theme.of(context).textTheme.bodyLarge,
                       decoration: InputDecoration(
-                        hintText: '写给竹芽…',
+                        hintText: '写给竹笌…',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide(
@@ -487,7 +487,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                 _Dot(delay: i, anim: _thinkingController.value),
               const SizedBox(width: 8),
               Text(
-                '竹芽在想',
+                '竹笌在想',
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).textTheme.bodySmall?.color,
@@ -521,7 +521,7 @@ class _LetterEntry extends StatelessWidget {
             isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Text(
-            isUser ? '我' : '竹芽',
+            isUser ? '我' : '竹笌',
             style: TextStyle(
               fontSize: 11,
               color: isUser

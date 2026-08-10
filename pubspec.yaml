@@ -1,13 +1,13 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 竹芽（zhuyapp）Flutter 项目配置文件
+# 竹笌（zhuyapp）Flutter 项目配置文件
 #
-# 项目名称：竹芽 - 2D虚拟角色语音陪聊助手
+# 项目名称：竹笌 - 2D虚拟角色语音陪聊助手
 # 发布位置：none（不发布到 pub.dev）
 # 版本号：1.0.0+1（ semantic_version+build_number ）
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: zhuyapp
-description: "竹芽 - 2D虚拟角色语音陪聊助手"
+description: "竹笌 - 2D虚拟角色语音陪聊助手"
 publish_to: 'none'
 version: 1.0.0+1
 

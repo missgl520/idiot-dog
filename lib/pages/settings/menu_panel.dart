@@ -69,7 +69,7 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
               ),
             ),
 
-            // ── 竹芽头像 + 关系状态 ──
+            // ── 竹笌头像 + 关系状态 ──
             _RelationshipBanner(
               affinity: affinity,
               currentEmotion: currentEmotion?.emotion ?? 'neutral',
@@ -81,7 +81,7 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
             _MenuTile(
               icon: Icons.pets,
               title: 'Live2D 模型',
-              subtitle: '选择竹芽的虚拟形象',
+              subtitle: '选择竹笌的虚拟形象',
               onTap: () => _showModelPicker(context),
             ),
 
@@ -159,7 +159,7 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '说出唤醒词，竹芽就会回应你。',
+              '说出唤醒词，竹笌就会回应你。',
               style: TextStyle(fontSize: 13, color: Colors.black54),
             ),
             const SizedBox(height: 16),
@@ -167,7 +167,7 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
               controller: controller,
               decoration: const InputDecoration(
                 labelText: '唤醒词',
-                hintText: '例如：竹芽竹芽',
+                hintText: '例如：竹笌竹笌',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -318,7 +318,7 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
       builder: (_) => AlertDialog(
         title: const Text('确认清空记忆？'),
         content: const Text(
-          '清空后竹芽会忘记所有对话历史。\n此操作不可恢复。',
+          '清空后竹笌会忘记所有对话历史。\n此操作不可恢复。',
         ),
         actions: [
           TextButton(
@@ -371,7 +371,7 @@ class _RelationshipBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // 竹芽头像
+          // 竹笌头像
           Container(
             width: 52,
             height: 52,
@@ -394,7 +394,7 @@ class _RelationshipBanner extends StatelessWidget {
                 Row(
                   children: [
                     const Text(
-                      '竹芽',
+                      '竹笌',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(width: 8),

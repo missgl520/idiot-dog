@@ -138,7 +138,7 @@ class _VoiceCallPageState extends ConsumerState<VoiceCallPage> {
 
             const Spacer(),
 
-            // ── 竹芽头像 ──
+            // ── 竹笌头像 ──
             Container(
               width: 120,
               height: 120,
@@ -159,9 +159,9 @@ class _VoiceCallPageState extends ConsumerState<VoiceCallPage> {
 
             const SizedBox(height: 24),
 
-            // ── 竹芽名字 ──
+            // ── 竹笌名字 ──
             const Text(
-              '竹芽',
+              '竹笌',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 28,
@@ -234,7 +234,7 @@ class _VoiceCallPageState extends ConsumerState<VoiceCallPage> {
   String _stateText(LiveKitState s) {
     return switch (s) {
       LiveKitState.idle => '等待连接...',
-      LiveKitState.connecting => '正在连接竹芽...',
+      LiveKitState.connecting => '正在连接竹笌...',
       LiveKitState.connected => '通话中',
       LiveKitState.error => '连接失败',
     };

@@ -191,7 +191,7 @@ class _MemoryCard extends StatelessWidget {
   }
 
   String _stripPrefix(String content) {
-    return content.replaceFirst(RegExp(r'^(用户|竹芽|User|AI)[:：]\s*'), '');
+    return content.replaceFirst(RegExp(r'^(用户|竹芽|竹笌|User|AI)[:：]\s*'), '');
   }
 
   String _formatTime(String createdAt) {
@@ -226,7 +226,7 @@ class _MemoryCard extends StatelessWidget {
               Text(isUser ? '👤' : '🌱', style: const TextStyle(fontSize: 16)),
               const SizedBox(width: 6),
               Text(
-                isUser ? '你' : '竹芽',
+                isUser ? '你' : '竹笌',
                 style: TextStyle(
                   color: roleColor,
                   fontWeight: FontWeight.w600,

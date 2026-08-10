@@ -1,5 +1,5 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 竹芽 App - 主入口
+// 竹笌 App - 主入口
 // 负责：Hive 初始化 → 全局 ProviderScope → MaterialApp.router
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import 'package:flutter/material.dart';
@@ -44,7 +44,7 @@ class ZhuyApp extends ConsumerWidget {
     final isDarkMode = ref.watch(themeProvider);  // true = 暗色主题
 
     return MaterialApp.router(
-      title: '竹芽',
+      title: '竹笌',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,    // 亮色主题配色
       darkTheme: AppTheme.dark,  // 暗色主题配色

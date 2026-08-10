@@ -70,7 +70,7 @@ class ChatBubble extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          '竹芽',
+                          '竹笌',
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.bamboo.withValues(alpha: 0.8)),
                         ),
                       ),

@@ -7,7 +7,7 @@
 // 背景：
 //   通用 TTS（pyttsx3 / espeak）太机械，没有"灵魂"。
 //   Cartesia 是情感 TTS API，可以控制语气（gentle / playful / wise），
-//   让竹芽的声音有性格。
+//   让竹笌的声音有性格。
 //
 // 三种角色风格（Cartesia voice IDs）：
 //   gentle   → 温柔细腻，适合日常聊天

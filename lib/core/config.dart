@@ -34,7 +34,7 @@ class BackendConfig {
   static const String _defaultBaseUrl = 'https://chilly-sloths-jump.loca.lt';
 
   /// 默认唤醒词（用户还没设置过时的兜底值）
-  static const String _defaultWakeWord = '竹芽竹芽';
+  static const String _defaultWakeWord = '竹笌竹笌';
 
   /// 情感语音角色
   /// 可选：gentle（温柔）/ playful（俏皮）/ wise（智慧）

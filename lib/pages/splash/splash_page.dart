@@ -143,7 +143,7 @@ class _SplashPageState extends State<SplashPage>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 竹芽人物 - 浮动动画
+                          // 竹笌人物 - 浮动动画
                           AnimatedBuilder(
                             animation: _floatAnim,
                             builder: (context, child) {
@@ -177,9 +177,9 @@ class _SplashPageState extends State<SplashPage>
                           ),
                           const SizedBox(height: 32),
 
-                          // 品牌名称 "竹  芽"（加宽字间距，营造书卷气）
+                          // 品牌名称 "竹  笌"（加宽字间距，营造书卷气）
                           Text(
-                            '竹  芽',
+                            '竹  笌',
                             style: TextStyle(
                               fontSize: 36,
                               fontWeight: FontWeight.w800,
