@@ -26,6 +26,19 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 
+// 强制所有子项目使用 compileSdk 36，解决依赖库版本冲突
+subprojects {
+    afterEvaluate {
+        if (project.hasProperty("android")) {
+            project.extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.apply {
+                if (compileSdkVersion < 36) {
+                    compileSdkVersion(36)
+                }
+            }
+        }
+    }
+}
+
 subprojects {
     // 确保所有子项目都在 :app 模块评估后再进行评估
     project.evaluationDependsOn(":app")
