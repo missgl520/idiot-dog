@@ -19,11 +19,9 @@ import '../../domain/entities/message.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../services/chat_service.dart';
 
-/// 对话仓库实现
-///
-/// 把 ChatService（SSE）适配成 ChatRepository（Stream<ChatEvent>）接口
 class ChatRepositoryImpl implements ChatRepository {
-  ChatRepositoryImpl({ChatService? service}) : _service = service ?? ChatService();
+  ChatRepositoryImpl({ChatService? service})
+      : _service = service ?? ChatService();
 
   final ChatService _service;
 
@@ -33,25 +31,16 @@ class ChatRepositoryImpl implements ChatRepository {
     required List<Message> history,
     String? systemPrompt,
   }) async* {
-    // StreamController：允许我们手动向流里塞事件
     final controller = StreamController<ChatEvent>();
 
-    // 攒起来的完整文字（用于构造 Message）
-    StringBuffer fullText = StringBuffer();
-    String? lastEmotion;
-
-    // 调用 SSE 服务，收集 token
-    final success = await _service.streamChat(
+    await _service.streamChat(
       message: message,
       history: history,
       systemPrompt: systemPrompt,
       onText: (token) {
-        fullText.write(token);
-        // 每收到一个片段就下发一个 token 事件
         controller.add(ChatEvent.token(token));
       },
       onEmotion: (emotion, confidence) {
-        lastEmotion = emotion;
         controller.add(ChatEvent.emotion(emotion));
       },
       onAffinity: (affinity) {
@@ -62,7 +51,7 @@ class ChatRepositoryImpl implements ChatRepository {
       },
       onDone: () {
         controller.add(ChatEvent.done());
-        controller.close();  // 流结束，通知监听者
+        controller.close();
       },
       onError: (error) {
         controller.add(ChatEvent.error(error));
@@ -70,11 +59,6 @@ class ChatRepositoryImpl implements ChatRepository {
       },
     );
 
-    if (!success) {
-      // 流失败，直接 close（上面 onError 已经处理）
-    }
-
-    // 把 controller 的流 yield 出去
     yield* controller.stream;
   }
 

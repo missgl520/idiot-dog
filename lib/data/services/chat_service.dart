@@ -30,17 +30,18 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import '../../domain/repositories/chat_repository.dart';
-import '../../domain/entities/message.dart';
+import '../../core/config.dart';
 
-/// 对话服务
-///
-/// 负责：
-/// 1. 构造 HTTP 请求（POST /chat/v2）
+import '../../domain/entities/message.dart';
 /// 2. 解析 SSE 流事件
 /// 3. 将事件转换为 ChatEvent 推送给调用方
 class ChatService {
-  ChatService({Dio? dio}) : _dio = dio ?? Dio();
+  ChatService({Dio? dio})
+      : _dio = dio ?? Dio(BaseOptions(
+          baseUrl: BackendConfig.instance.baseUrl,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 30),
+        ));
 
   final Dio _dio;
 

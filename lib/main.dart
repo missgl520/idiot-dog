@@ -15,19 +15,17 @@ void main() async {
 
   // 初始化 Hive 本地存储（类 IndexedDB，用于持久化）
   await Hive.initFlutter();
-
-  // 打开三个盒子（类似表）：
-  // - settings  : 主题/API Key/TTS开关等设置
-  // - messages  : 对话历史
-  // - memory    : AI 长期记忆（SinoMem）
   await Hive.openBox('settings');
   await Hive.openBox('messages');
   await Hive.openBox('memory');
 
+  // 初始化后端配置（必须先于 App 运行，因为它决定 Dio baseUrl）
+  await BackendConfig.instance.init();
+
   // 首次启动：写入穿透后端地址（localtunnel 每次重启会变，需同步更新）
   // 生产环境可改为固定 ngrok/cloudflare tunnel 地址
   if (Hive.box('settings').get('backendUrl') == null) {
-    Hive.box('settings').put('backendUrl', 'https://common-dodos-hug.loca.lt');
+    Hive.box('settings').put('backendUrl', 'https://warm-paws-press.loca.lt');
   }
 
   // Riverpod 跨组件状态管理，child 能通过 ref.watch/read 获取 providers

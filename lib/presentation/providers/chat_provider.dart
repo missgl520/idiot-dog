@@ -25,9 +25,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/message.dart';
 import '../../domain/entities/emotion.dart';
 import '../../domain/entities/affinity.dart';
-import '../../data/services/chat_service.dart';
 import '../../data/repositories/chat_repository_impl.dart';
-import '../../domain/repositories/chat_repository.dart'; // ← ChatEventType 在这里
+import '../../domain/repositories/chat_repository.dart'; // ChatEventType
 
 // ════════════════════════════════════════════════════════════
 // 状态类型定义
