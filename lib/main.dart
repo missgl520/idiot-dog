@@ -22,10 +22,10 @@ void main() async {
   // 初始化后端配置（必须先于 App 运行，因为它决定 Dio baseUrl）
   await BackendConfig.instance.init();
 
-  // 首次启动：写入穿透后端地址（localtunnel 每次重启会变，需同步更新）
-  // 生产环境可改为固定 ngrok/cloudflare tunnel 地址
+  // 首次启动：写入默认后端地址（仅当 Hive 中无值时；用户在设置页改过的不覆盖）
+  // 开发联调：安卓模拟器用 10.0.2.2:8000；真机用电脑局域网 IP（见设置页说明）
   if (Hive.box('settings').get('backendUrl') == null) {
-    Hive.box('settings').put('backendUrl', 'https://mature-are-blocking-centres.trycloudflare.com');
+    Hive.box('settings').put('backendUrl', 'http://10.0.2.2:8000');
   }
 
   // Riverpod 跨组件状态管理，child 能通过 ref.watch/read 获取 providers
