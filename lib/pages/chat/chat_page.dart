@@ -20,6 +20,8 @@ import '../../widgets/live2d_controller.dart';
 import '../../widgets/live2d_widget.dart';
 import '../../widgets/voice_button.dart';
 import '../../widgets/image_picker_button.dart';
+import '../../widgets/dashed_container.dart';
+import '../../core/theme/app_theme.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -190,40 +192,39 @@ class _ChatPageState extends ConsumerState<ChatPage>
             Expanded(
               child: Stack(
                 children: [
-                  // Live2D
-                  Positioned(
-                    bottom: 160,
-                    right: 20,
-                    child: AnimatedOpacity(
-                      opacity: status == ConversationStatus.idle ? 1.0 : 0.4,
-                      duration: const Duration(milliseconds: 600),
-                      child: Consumer(
-                        builder: (context, ref, _) {
-                          final l2dCtrl =
-                              ref.watch(old_providers.live2dControllerProvider);
-                          final lipSync =
-                              ref.watch(new_providers.lipSyncStreamProvider);
-                          lipSync.whenData((mouth) {
-                            l2dCtrl.viewController.setParameter(
-                              'ParamMouthOpenY',
-                              mouth.clamp(0.0, 0.75),
-                            );
-                          });
-                          return ZhuaLive2DWidget(
-                            controller: l2dCtrl.viewController,
-                            onTap: () {},
+                  // 1. Live2D 铺满背景（底层，视觉主角）
+                  Positioned.fill(
+                    child: Consumer(
+                      builder: (context, ref, _) {
+                        final l2dCtrl =
+                            ref.watch(old_providers.live2dControllerProvider);
+                        final lipSync =
+                            ref.watch(new_providers.lipSyncStreamProvider);
+                        lipSync.whenData((mouth) {
+                          l2dCtrl.viewController.setParameter(
+                            'ParamMouthOpenY',
+                            mouth.clamp(0.0, 0.75),
                           );
-                        },
-                      ),
+                        });
+                        return ZhuaLive2DWidget(
+                          controller: l2dCtrl.viewController,
+                          onTap: () {},
+                        );
+                      },
                     ),
                   ),
 
-                  // 消息列表
+                  // 2. 消息半透明浮层（中层，嫩绿虚线边框，让人物透出）
                   Positioned.fill(
                     child: GestureDetector(
                       onTap: () => _focusNode.unfocus(),
-                      child: Container(
-                        color: Theme.of(context).scaffoldBackgroundColor,
+                      child: DashedContainer(
+                        borderColor: AppTheme.bamboo.withValues(alpha: 0.5),
+                        borderRadius: 0,
+                        backgroundColor: isDark
+                            ? Colors.black.withValues(alpha: 0.34)
+                            : AppTheme.bamboo.withValues(alpha: 0.06),
+                        padding: EdgeInsets.zero,
                         child: messages.isEmpty
                             ? _buildEmpty(isDark, status)
                             : _buildLetterList(messages, status),
@@ -315,10 +316,10 @@ class _ChatPageState extends ConsumerState<ChatPage>
     };
 
     final color = switch (status) {
-      ConversationStatus.idle     => const Color(0xFF6B9E78),
+      ConversationStatus.idle     => AppTheme.bambooDeep,
       ConversationStatus.thinking => const Color(0xFFB8A07A),
-      ConversationStatus.writing  => const Color(0xFF6B9E78),
-      ConversationStatus.speaking => const Color(0xFF6B9E78),
+      ConversationStatus.writing  => AppTheme.bambooDeep,
+      ConversationStatus.speaking => AppTheme.bambooDeep,
     };
 
     return AnimatedContainer(
@@ -351,7 +352,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
             '…',
             style: TextStyle(
               fontSize: 48,
-              color: const Color(0xFF6B9E78).withValues(alpha: 0.3),
+              color: AppTheme.bambooDeep.withValues(alpha: 0.3),
               height: 1,
             ),
           ),
@@ -431,23 +432,23 @@ class _ChatPageState extends ConsumerState<ChatPage>
                       decoration: InputDecoration(
                         hintText: '写给竹笌…',
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                           borderSide: BorderSide(
                             color: Theme.of(context).dividerColor,
                             width: 0.5,
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                           borderSide: BorderSide(
                             color: Theme.of(context).dividerColor,
                             width: 0.5,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                           borderSide: const BorderSide(
-                            color: Color(0xFF6B9E78),
+                            color: AppTheme.bambooDeep,
                             width: 1,
                           ),
                         ),
@@ -469,7 +470,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                               onPressed: _send,
                               icon: const Icon(
                                 Icons.arrow_upward,
-                                color: Color(0xFF6B9E78),
+                                color: AppTheme.bambooDeep,
                               ),
                             )
                           : const SizedBox(width: 48);
@@ -541,7 +542,7 @@ class _LetterEntry extends StatelessWidget {
                   fontSize: 11,
                   color: isUser
                       ? Theme.of(context).textTheme.bodySmall?.color
-                      : const Color(0xFF6B9E78).withValues(alpha: 0.7),
+                      : AppTheme.bambooDeep.withValues(alpha: 0.7),
                   letterSpacing: 3,
                   fontWeight: FontWeight.w500,
                 ),
@@ -551,14 +552,14 @@ class _LetterEntry extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6B9E78).withValues(alpha: 0.12),
+                    color: AppTheme.bambooDeep.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
                     'AI 生成',
                     style: TextStyle(
                       fontSize: 9,
-                      color: Color(0xFF6B9E78),
+                      color: AppTheme.bambooDeep,
                       letterSpacing: 1,
                     ),
                   ),
@@ -576,7 +577,7 @@ class _LetterEntry extends StatelessWidget {
                 : BoxDecoration(
                     border: Border(
                       left: BorderSide(
-                        color: const Color(0xFF6B9E78).withValues(alpha: 0.28),
+                        color: AppTheme.bambooDeep.withValues(alpha: 0.28),
                         width: 1.5,
                         strokeAlign: BorderSide.strokeAlignInside,
                       ),
@@ -633,7 +634,7 @@ class _TypingCursorState extends State<_TypingCursor>
       builder: (_, _) => Container(
         width: 2,
         height: 16,
-        color: const Color(0xFF6B9E78).withValues(alpha: _c.value),
+        color: AppTheme.bambooDeep.withValues(alpha: _c.value),
       ),
     );
   }

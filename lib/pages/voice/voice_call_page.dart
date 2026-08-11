@@ -12,6 +12,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,22 +42,29 @@ class VoiceCallPage extends ConsumerStatefulWidget {
   ConsumerState<VoiceCallPage> createState() => _VoiceCallPageState();
 }
 
-class _VoiceCallPageState extends ConsumerState<VoiceCallPage> {
+class _VoiceCallPageState extends ConsumerState<VoiceCallPage>
+    with SingleTickerProviderStateMixin {
   final LiveKitService _liveKit = LiveKitService();
 
   bool _isMuted = false;
   DateTime? _callStartTime;
   Timer? _durationTimer;
+  late AnimationController _waveController;
 
   @override
   void initState() {
     super.initState();
+    _waveController = AnimationController(
+      duration: const Duration(milliseconds: 1800),
+      vsync: this,
+    )..repeat();
     _connect();
   }
 
   @override
   void dispose() {
     _durationTimer?.cancel();
+    _waveController.dispose();
     _liveKit.disconnect();
     super.dispose();
   }
@@ -116,7 +124,7 @@ class _VoiceCallPageState extends ConsumerState<VoiceCallPage> {
     final duration = ref.watch(callDurationProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A2A1A),
+      backgroundColor: const Color(0xFF16271C),
       body: SafeArea(
         child: Column(
           children: [
@@ -131,12 +139,19 @@ class _VoiceCallPageState extends ConsumerState<VoiceCallPage> {
                   ),
                   const Spacer(),
                   if (state == LiveKitState.connected)
-                    Text(
-                      _formatDuration(duration),
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 16,
-                        fontFeatures: [FontFeature.tabularFigures()],
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        _formatDuration(duration),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
                       ),
                     ),
                   const Spacer(),
@@ -147,23 +162,29 @@ class _VoiceCallPageState extends ConsumerState<VoiceCallPage> {
 
             const Spacer(),
 
-            // ── 竹笌头像 ──
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.bamboo.withValues(alpha: 0.15),
-                border: Border.all(
-                  color: AppTheme.bamboo.withValues(alpha: 0.3),
-                  width: 2,
+            // ── 竹笌头像 + 声波可视化 ──
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                if (state == LiveKitState.connected) _SoundWaves(animation: _waveController),
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.bamboo.withValues(alpha: 0.15),
+                    border: Border.all(
+                      color: AppTheme.bamboo.withValues(alpha: 0.3),
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: state == LiveKitState.connected
+                        ? const Text('🌱', style: TextStyle(fontSize: 52))
+                        : const Text('🔗', style: TextStyle(fontSize: 52)),
+                  ),
                 ),
-              ),
-              child: Center(
-                child: state == LiveKitState.connected
-                    ? const Text('🌱', style: TextStyle(fontSize: 52))
-                    : const Text('🔗', style: TextStyle(fontSize: 52)),
-              ),
+              ],
             ),
 
             const SizedBox(height: 24),
@@ -203,35 +224,52 @@ class _VoiceCallPageState extends ConsumerState<VoiceCallPage> {
 
             const Spacer(),
 
-            // ── 控制按钮 ──
+            // ── 控制按钮（毛玻璃） ──
             Padding(
               padding: const EdgeInsets.only(bottom: 48),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // 静音按钮
-                  _ControlButton(
-                    icon: _isMuted ? Icons.mic_off : Icons.mic,
-                    label: _isMuted ? '取消静音' : '静音',
-                    isActive: !_isMuted,
-                    onTap: state == LiveKitState.connected ? _toggleMute : null,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // 静音按钮
+                        _ControlButton(
+                          icon: _isMuted ? Icons.mic_off : Icons.mic,
+                          label: _isMuted ? '取消静音' : '静音',
+                          isActive: !_isMuted,
+                          onTap: state == LiveKitState.connected ? _toggleMute : null,
+                        ),
+
+                        const SizedBox(width: 40),
+
+                        // 挂断按钮
+                        _ControlButton(
+                          icon: Icons.call_end,
+                          label: '挂断',
+                          bgColor: Colors.red,
+                          onTap: _endCall,
+                        ),
+
+                        const SizedBox(width: 40),
+
+                        // 占位（未来：扬声器）
+                        const SizedBox(width: 56),
+                      ],
+                    ),
                   ),
-
-                  const SizedBox(width: 40),
-
-                  // 挂断按钮
-                  _ControlButton(
-                    icon: Icons.call_end,
-                    label: '挂断',
-                    bgColor: Colors.red,
-                    onTap: _endCall,
-                  ),
-
-                  const SizedBox(width: 40),
-
-                  // 占位（未来：扬声器）
-                  const SizedBox(width: 56),
-                ],
+                ),
               ),
             ),
           ],
@@ -304,6 +342,45 @@ class _ControlButton extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 环形声波可视化（通话中随动画向外扩散）
+class _SoundWaves extends StatelessWidget {
+  final Animation<double> animation;
+
+  const _SoundWaves({required this.animation});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (_, __) {
+        return Stack(
+          alignment: Alignment.center,
+          children: List.generate(3, (i) {
+            final delay = i / 3.0;
+            final t = ((animation.value + delay) % 1.0);
+            final scale = 1.0 + t * 0.8;
+            final opacity = (1.0 - t) * 0.5;
+            return Transform.scale(
+              scale: scale,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppTheme.bamboo.withValues(alpha: opacity),
+                    width: 2,
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

@@ -57,6 +57,7 @@ class SettingsSheet extends ConsumerWidget {
             // ── 菜单项列表 ──
             _MenuItem(
               title: '关于竹笌',
+              subtitle: '版本与介绍',
               icon: Icons.info_outline,
               expanded: expanded == 'about',
               onTap: () => _toggle(ref, 'about'),
@@ -67,6 +68,7 @@ class SettingsSheet extends ConsumerWidget {
 
             _MenuItem(
               title: '声音设置',
+              subtitle: '语音播报与音色',
               icon: Icons.volume_up_outlined,
               expanded: expanded == 'sound',
               onTap: () => _toggle(ref, 'sound'),
@@ -77,6 +79,7 @@ class SettingsSheet extends ConsumerWidget {
 
             _MenuItem(
               title: '语音设置',
+              subtitle: '识别引擎与唤醒词',
               icon: Icons.mic_outlined,
               expanded: expanded == 'voice',
               onTap: () => _toggle(ref, 'voice'),
@@ -87,6 +90,7 @@ class SettingsSheet extends ConsumerWidget {
 
             _MenuItem(
               title: '模型设置',
+              subtitle: 'AI 模型来源',
               icon: Icons.smart_toy_outlined,
               expanded: expanded == 'model',
               onTap: () => _toggle(ref, 'model'),
@@ -97,6 +101,7 @@ class SettingsSheet extends ConsumerWidget {
 
             _MenuItem(
               title: '隐私政策',
+              subtitle: '查看隐私条款',
               icon: Icons.privacy_tip_outlined,
               expanded: false,
               onTap: () => context.push('/legal?type=privacy'),
@@ -107,6 +112,7 @@ class SettingsSheet extends ConsumerWidget {
 
             _MenuItem(
               title: '用户协议',
+              subtitle: '查看用户协议',
               icon: Icons.description_outlined,
               expanded: false,
               onTap: () => context.push('/legal?type=terms'),
@@ -160,6 +166,7 @@ class _MenuDivider extends StatelessWidget {
 class _MenuItem extends ConsumerWidget {
   final String title;
   final IconData icon;
+  final String? subtitle;
   final bool expanded;
   final VoidCallback onTap;
   final Widget children;
@@ -167,6 +174,7 @@ class _MenuItem extends ConsumerWidget {
   const _MenuItem({
     required this.title,
     required this.icon,
+    this.subtitle,
     required this.expanded,
     required this.onTap,
     required this.children,
@@ -179,20 +187,42 @@ class _MenuItem extends ConsumerWidget {
       children: [
         InkWell(
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkCard : Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              border: Border.all(
+                color: Colors.grey.withValues(alpha: 0.2),
+                width: 0.5,
+              ),
+            ),
             child: Row(
               children: [
                 Icon(icon, size: 20, color: AppTheme.bamboo),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle!,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 AnimatedRotation(
@@ -423,6 +453,34 @@ class _ModelContent extends ConsumerWidget {
                 ),
               ),
             ],
+          ),
+          if (!useCN) _buildCrossBorderBanner(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCrossBorderBanner() {
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.warmYellow.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppTheme.warmYellow.withValues(alpha: 0.5),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_outlined, color: Color(0xFFB5811F), size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '国际版模型部署在境外，对话内容将被传输至境外处理。',
+              style: TextStyle(fontSize: 12, color: Color(0xFF8A6D1B)),
+            ),
           ),
         ],
       ),

@@ -2,14 +2,13 @@
 
 allprojects {
     repositories {
-        // Google 官方仓库
-        google()
-        // Maven 中央仓库
-        mavenCentral()
-        // 阿里云镜像：加速国内 Gradle 依赖下载
+        // 阿里云镜像优先（国内加速，避免先访问国际仓库被墙导致卡死）
         maven { url = uri("https://maven.aliyun.com/repository/google") }
         maven { url = uri("https://maven.aliyun.com/repository/central") }
         maven { url = uri("https://maven.aliyun.com/repository/public") }
+        // 国际仓库作为 fallback
+        google()
+        mavenCentral()
     }
 }
 

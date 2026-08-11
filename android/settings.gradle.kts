@@ -16,15 +16,15 @@ pluginManagement {
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
     repositories {
-        // Google、Maven Central、Gradle 插件仓库
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-        // 阿里云镜像：加速国内插件下载
+        // 阿里云镜像优先（国内加速，避免先访问国际仓库被墙导致卡死）
         maven { url = uri("https://maven.aliyun.com/repository/google") }
         maven { url = uri("https://maven.aliyun.com/repository/central") }
         maven { url = uri("https://maven.aliyun.com/repository/public") }
         maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        // 国际仓库作为 fallback（国内镜像缺失时）
+        google()
+        mavenCentral()
+        gradlePluginPortal()
     }
 }
 

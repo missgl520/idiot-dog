@@ -92,8 +92,9 @@ class _MemoryHistoryPageState extends ConsumerState<MemoryHistoryPage> {
     return Scaffold(
       backgroundColor: AppTheme.paper,
       appBar: AppBar(
-        backgroundColor: AppTheme.bamboo,
-        foregroundColor: Colors.white,
+        backgroundColor: AppTheme.paper,
+        foregroundColor: AppTheme.softText,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -102,10 +103,10 @@ class _MemoryHistoryPageState extends ConsumerState<MemoryHistoryPage> {
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
+                style: TextStyle(color: AppTheme.softText),
+                decoration: InputDecoration(
                   hintText: '搜索记忆...',
-                  hintStyle: TextStyle(color: Colors.white70),
+                  hintStyle: TextStyle(color: Colors.grey[500]),
                   border: InputBorder.none,
                 ),
                 onSubmitted: _search,
@@ -153,11 +154,24 @@ class _MemoryHistoryPageState extends ConsumerState<MemoryHistoryPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🌱', style: TextStyle(fontSize: 48)),
-            const SizedBox(height: 12),
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                color: AppTheme.bamboo.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.eco, size: 48, color: AppTheme.bambooDeep),
+            ),
+            const SizedBox(height: 16),
             Text(
               _isSearchMode ? '没有找到相关记忆' : '今天还没有对话记忆',
-              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              style: TextStyle(color: Colors.grey[700], fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _isSearchMode ? '换个关键词试试' : '和竹笌聊聊，记忆会自动保存',
+              style: TextStyle(color: Colors.grey[500], fontSize: 13),
             ),
           ],
         ),
@@ -191,7 +205,7 @@ class _MemoryCard extends StatelessWidget {
   }
 
   String _stripPrefix(String content) {
-    return content.replaceFirst(RegExp(r'^(用户|竹芽|竹笌|User|AI)[:：]\s*'), '');
+    return content.replaceFirst(RegExp(r'^(用户|竹笌|User|AI)[:：]\s*'), '');
   }
 
   String _formatTime(String createdAt) {

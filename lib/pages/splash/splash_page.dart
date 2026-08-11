@@ -1,13 +1,16 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 启动页（Splash Page）
 //
-// 竹子 Logo + 品牌名 + 竹叶飘落动效
+// 竹子 Logo + 品牌名 + 呼吸浮动 / 缩放 / 淡入动效
+// 简约少年系：白底 + 嫩绿点缀，去掉多余的飘落装饰
+// 同意门：全屏品牌卡片（隐私 / 协议两栏 + 主按钮），不挡视觉
 // 动画结束或点击屏幕后自动跳转到对话页 /chat
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import '../../core/theme/app_theme.dart';
 
 /// 隐私政策 / 用户协议版本号。条款更新时务必同步此版本，
 /// 以便未同意新版本的用户在下次启动时被要求重新确认。
@@ -35,12 +38,11 @@ class _SplashPageState extends State<SplashPage>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnim;
 
-  // 竹叶飘落动画控制器
-  late AnimationController _leafController;
-  late Animation<double> _leafAnim;
-
   /// 用户是否已同意隐私政策 / 用户协议
   bool _agreed = false;
+
+  /// 是否显示全屏同意卡
+  bool _consentVisible = false;
 
   @override
   void initState() {
@@ -76,19 +78,11 @@ class _SplashPageState extends State<SplashPage>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
     );
 
-    // 竹叶飘落循环
-    _leafController = AnimationController(
-      duration: const Duration(milliseconds: 4000),
-      vsync: this,
-    )..repeat();
-
-    _leafAnim = Tween<double>(begin: 0.0, end: 1.0).animate(_leafController);
-
-    // 启动所有动画
+    // 启动动画
     _fadeController.forward();
     _scaleController.forward();
 
-    // 合规同意检查：已同意则延时跳转，未同意则弹窗
+    // 合规同意检查：已同意则延时跳转，未同意则显示全屏同意卡
     _initConsent();
   }
 
@@ -96,12 +90,13 @@ class _SplashPageState extends State<SplashPage>
   Future<void> _initConsent() async {
     final box = await Hive.openBox('settings');
     final agreed = box.get('agreedToLegal', defaultValue: false) as bool;
-    final agreedVersion = box.get('agreedToLegalVersion', defaultValue: '') as String;
+    final agreedVersion =
+        box.get('agreedToLegalVersion', defaultValue: '') as String;
     if (agreed && agreedVersion == _legalVersion) {
       if (mounted) setState(() => _agreed = true);
       _scheduleNavigate();
     } else {
-      if (mounted) _showConsentDialog();
+      if (mounted) setState(() => _consentVisible = true);
     }
   }
 
@@ -112,46 +107,18 @@ class _SplashPageState extends State<SplashPage>
     });
   }
 
-  /// 首次启动 / 条款更新时的同意弹窗（不可点击遮罩关闭）
-  void _showConsentDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('欢迎使用竹笌'),
-        content: const SingleChildScrollView(
-          child: Text(
-            '竹笌是一款情感陪伴 AI，会收集并处理您的对话内容、语音及好感度等数据'
-            '以提供陪伴服务。\n\n'
-            '为保护您的权益，使用前请阅读并同意《隐私政策》与《用户协议》。'
-            '我们已对 AI 生成内容进行显著标识，并采用接口鉴权与多用户数据隔离等措施保护您的信息。',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => ctx.push('/legal?type=privacy'),
-            child: const Text('隐私政策'),
-          ),
-          TextButton(
-            onPressed: () => ctx.push('/legal?type=terms'),
-            child: const Text('用户协议'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final box = await Hive.openBox('settings');
-              await box.put('agreedToLegal', true);
-              await box.put('agreedToLegalVersion', _legalVersion);
-              if (mounted) {
-                Navigator.of(ctx).pop();
-                setState(() => _agreed = true);
-                context.go('/chat');
-              }
-            },
-            child: const Text('我已知晓并同意'),
-          ),
-        ],
-      ),
-    );
+  /// 同意按钮：写入 Hive，关闭卡片并跳转
+  Future<void> _acceptConsent() async {
+    final box = await Hive.openBox('settings');
+    await box.put('agreedToLegal', true);
+    await box.put('agreedToLegalVersion', _legalVersion);
+    if (mounted) {
+      setState(() {
+        _agreed = true;
+        _consentVisible = false;
+      });
+      context.go('/chat');
+    }
   }
 
   @override
@@ -159,49 +126,37 @@ class _SplashPageState extends State<SplashPage>
     _floatController.dispose();
     _scaleController.dispose();
     _fadeController.dispose();
-    _leafController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 根据当前主题亮度选择背景色
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF1A1A2E) : const Color(0xFFF5F5DC),
+      backgroundColor: isDark ? AppTheme.darkBg : AppTheme.paper,
       body: GestureDetector(
         onTap: () {
           if (_agreed) {
             context.go('/chat');
-          } else {
-            _showConsentDialog();
+          } else if (!_consentVisible) {
+            // 已同意跳过；未同意则弹出全屏同意卡
+            setState(() => _consentVisible = true);
           }
-        }, // 已同意则跳过，否则弹同意框
+        },
         child: Stack(
           children: [
-            // 背景：淡绿渐变
+            // 背景：paper → 淡绿 渐变
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: isDark
-                      ? [const Color(0xFF1A1A2E), const Color(0xFF2A3A2E)]
-                      : [const Color(0xFFF5F5DC), const Color(0xFFE8F5E9)],
+                      ? [AppTheme.darkBg, const Color(0xFF223A2A)]
+                      : [AppTheme.paper, const Color(0xFFEAF4DD)],
                 ),
               ),
-            ),
-
-            // 竹叶飘落装饰
-            AnimatedBuilder(
-              animation: _leafAnim,
-              builder: (context, _) {
-                return CustomPaint(
-                  size: MediaQuery.of(context).size,
-                  painter: LeafPainter(_leafAnim.value),
-                );
-              },
             ),
 
             // 中央内容
@@ -216,7 +171,7 @@ class _SplashPageState extends State<SplashPage>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 竹笌人物 - 浮动动画
+                          // 竹笌 Logo - 浮动动画
                           AnimatedBuilder(
                             animation: _floatAnim,
                             builder: (context, child) {
@@ -232,7 +187,8 @@ class _SplashPageState extends State<SplashPage>
                                 borderRadius: BorderRadius.circular(40),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF6B9E78).withValues(alpha: 0.4),
+                                    color: AppTheme.bambooDeep
+                                        .withValues(alpha: 0.35),
                                     blurRadius: 40,
                                     offset: const Offset(0, 20),
                                   ),
@@ -240,7 +196,7 @@ class _SplashPageState extends State<SplashPage>
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(40),
-                                // 全局 Logo 竹子图案（v1.9）
+                                // 全局 Logo 竹子图案
                                 child: Image.asset(
                                   'assets/logo.png',
                                   fit: BoxFit.contain,
@@ -250,17 +206,18 @@ class _SplashPageState extends State<SplashPage>
                           ),
                           const SizedBox(height: 32),
 
-                          // 品牌名称 "竹  笌"（加宽字间距，营造书卷气）
+                          // 品牌名称 "竹  笌"
                           Text(
                             '竹  笌',
                             style: TextStyle(
                               fontSize: 36,
                               fontWeight: FontWeight.w800,
-                              color: const Color(0xFF6B9E78),
+                              color: AppTheme.bambooDeep,
                               letterSpacing: 12,
                               shadows: [
                                 Shadow(
-                                  color: const Color(0xFF6B9E78).withValues(alpha: 0.3),
+                                  color: AppTheme.bambooDeep
+                                      .withValues(alpha: 0.3),
                                   blurRadius: 20,
                                 ),
                               ],
@@ -273,7 +230,9 @@ class _SplashPageState extends State<SplashPage>
                             '情感陪伴 · 随时倾听',
                             style: TextStyle(
                               fontSize: 14,
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
                               letterSpacing: 3,
                             ),
                           ),
@@ -285,29 +244,14 @@ class _SplashPageState extends State<SplashPage>
               ),
             ),
 
-            // 底部跳过提示
-            Positioned(
-              bottom: 50,
-              left: 0,
-              right: 0,
-              child: AnimatedBuilder(
-                animation: _fadeAnim,
-                builder: (context, _) {
-                  return Opacity(
-                    opacity: _fadeAnim.value * 0.5,
-                    child: const Center(
-                      child: Text(
-                        '点击屏幕跳过',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+            // 全屏同意卡（半透明遮罩 + 居中品牌卡片，不挡视觉）
+            if (_consentVisible)
+              _ConsentCard(
+                isDark: isDark,
+                onPrivacy: () => context.push('/legal?type=privacy'),
+                onTerms: () => context.push('/legal?type=terms'),
+                onAccept: _acceptConsent,
               ),
-            ),
           ],
         ),
       ),
@@ -315,42 +259,167 @@ class _SplashPageState extends State<SplashPage>
   }
 }
 
-/// 竹叶飘落动画画家
-/// 通过 CustomPainter 在背景上绘制动态飘落的竹叶
-class LeafPainter extends CustomPainter {
-  /// 动画进度，0.0 ~ 1.0 循环
-  final double progress;
+/// 全屏同意品牌卡片
+class _ConsentCard extends StatelessWidget {
+  final bool isDark;
+  final VoidCallback onPrivacy;
+  final VoidCallback onTerms;
+  final Future<void> Function() onAccept;
 
-  LeafPainter(this.progress);
+  const _ConsentCard({
+    required this.isDark,
+    required this.onPrivacy,
+    required this.onTerms,
+    required this.onAccept,
+  });
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF4CAF50).withValues(alpha: 0.15)
-      ..style = PaintingStyle.fill;
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.35),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Container(
+            margin: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkCard : Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/logo.png',
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '欢迎使用竹笌',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppTheme.softText,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '竹笌是一款情感陪伴 AI，会收集并处理您的对话内容、语音及好感度等数据'
+                  '以提供陪伴服务。使用前请阅读并同意以下条款。',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? Colors.grey[300] : AppTheme.subText,
+                    height: 1.6,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
 
-      // 绘制 5 片飘落的竹叶，每片有独立的起始位置、速度和旋转角度
-    final leafCount = 5;
-    for (int i = 0; i < leafCount; i++) {
-      // 起始水平位置均匀分布
-      final startX = size.width * (0.1 + 0.2 * i);
-      // 垂直方向根据进度循环下落，每片有 0.2 的相位差
-      final offset = ((progress + i * 0.2) % 1.0) * size.height;
-      // 左右轻微摆动，偶数片向右、奇数片向左
-      final x = startX + (progress * 30 - 15) * (i % 2 == 0 ? 1 : -1);
-      final y = offset;
-      // 旋转角度随进度增加，每片有基础旋转偏移
-      final rotation = progress * 3.14 + i;
+                // 隐私 / 协议 两栏
+                Row(
+                  children: [
+                    Expanded(
+                      child: _LegalTile(
+                        icon: Icons.privacy_tip_outlined,
+                        label: '隐私政策',
+                        onTap: onPrivacy,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _LegalTile(
+                        icon: Icons.description_outlined,
+                        label: '用户协议',
+                        onTap: onTerms,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
 
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(rotation);
-      canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: 12, height: 6), paint);
-      canvas.restore();
-    }
+                // 主按钮
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: onAccept,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.bamboo,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusXl),
+                      ),
+                    ),
+                    child: const Text(
+                      '我已知晓并同意',
+                      style:
+                          TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
+}
+
+/// 同意卡内的法律入口小卡片
+class _LegalTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _LegalTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
-  // 当动画进度变化时重绘
-  bool shouldRepaint(covariant LeafPainter oldDelegate) => oldDelegate.progress != progress;
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.radius),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: AppTheme.bamboo.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(
+            color: AppTheme.bamboo.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: AppTheme.bambooDeep, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.white : AppTheme.softText,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

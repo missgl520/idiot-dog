@@ -19,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/theme/app_theme.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../core/services/backend_service.dart';
 import '../../presentation/providers/app_providers.dart';
 import '../voice/voice_call_page.dart';
@@ -45,6 +46,9 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
     final isDark = ref.watch(themeProvider);
     final affinity = ref.watch(affinityProvider);
     final currentEmotion = ref.watch(currentEmotionProvider);
+
+    final rawPersona = Hive.box('settings').get('persona', defaultValue: '少年感 · 阳光 · 直接') as String;
+    final personaSubtitle = rawPersona.length > 16 ? '${rawPersona.substring(0, 16)}…' : rawPersona;
 
     return Container(
       decoration: BoxDecoration(
@@ -77,6 +81,9 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
 
             const Divider(height: 1, indent: 20, endIndent: 20),
 
+            // ── 角色分组 ──
+            const _SectionLabel('角色'),
+
             // ── Live2D 模型选择 ──
             _MenuTile(
               icon: Icons.pets,
@@ -85,13 +92,12 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
               onTap: () => _showModelPicker(context),
             ),
 
-            // ── 角色设定（只读展示） ──
+            // ── 角色设定（可编辑） ──
             _MenuTile(
               icon: Icons.person_outline,
               title: '角色设定',
-              subtitle: '少年感 · 阳光 · 直接',
-              trailing: const Icon(Icons.lock_outline, size: 16, color: Colors.grey),
-              onTap: null,  // 仅展示，不可修改
+              subtitle: personaSubtitle,
+              onTap: () => _showPersonaEditor(context),
             ),
 
             // ── 唤醒词设置 ──
@@ -101,6 +107,9 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
               subtitle: '设置专属唤醒词',
               onTap: () => _showWakeWordEditor(context),
             ),
+
+            // ── 互动分组 ──
+            const _SectionLabel('互动'),
 
             // ── 实时语音通话 ──
             _MenuTile(
@@ -212,6 +221,66 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
         content: Text('唤醒词已保存为：$trimmed'),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showPersonaEditor(BuildContext context) {
+    final box = Hive.box('settings');
+    final controller = TextEditingController(
+      text: box.get('persona', defaultValue: '少年感 · 阳光 · 直接') as String,
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.person_outline, color: AppTheme.bamboo, size: 20),
+            SizedBox(width: 8),
+            Text('角色设定'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '定义竹笌的性格与说话风格，保存后将在下次对话生效。',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              maxLines: 4,
+              maxLength: 200,
+              decoration: const InputDecoration(
+                hintText: '例如：少年感、阳光、直接、爱用 emoji',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              box.put('persona', controller.text.trim());
+              Navigator.pop(ctx);
+              setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('角色设定已保存'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text('保存'),
+          ),
+        ],
       ),
     );
   }
@@ -371,7 +440,7 @@ class _RelationshipBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // 竹笌头像
+          // 竹笌头像（情绪 emoji）
           Container(
             width: 52,
             height: 52,
@@ -413,23 +482,16 @@ class _RelationshipBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _levelDescription(affinity.level),
+                  affinity.streakDays > 0
+                      ? '🔥 ${affinity.streakDays} 天连续 · ${_levelDescription(affinity.level)}'
+                      : _levelDescription(affinity.level),
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
           ),
-          // 连续天数
-          if (affinity.streakDays > 0)
-            Column(
-              children: [
-                Text(
-                  '🔥 ${affinity.streakDays}',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const Text('连续', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
+          // 好感度环形进度
+          _AffinityRing(affinity: affinity),
         ],
       ),
     );
@@ -455,6 +517,43 @@ class _RelationshipBanner extends StatelessWidget {
       '认识' => '初次相识，还在了解',
       _ => '我们刚认识，可以随便聊聊',
     };
+  }
+}
+
+/// 好感度环形进度（整体好感 = 信任/亲密/熟悉 均值）
+class _AffinityRing extends StatelessWidget {
+  final AffinityData affinity;
+
+  const _AffinityRing({required this.affinity});
+
+  @override
+  Widget build(BuildContext context) {
+    final avg = (affinity.trust + affinity.intimacy + affinity.familiarity) / 3;
+    final pct = (avg / 100).clamp(0.0, 1.0);
+    return SizedBox(
+      width: 46,
+      height: 46,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: pct,
+            strokeWidth: 4,
+            backgroundColor: Colors.grey.withValues(alpha: 0.2),
+            color: AppTheme.bambooDeep,
+            strokeCap: StrokeCap.round,
+          ),
+          Text(
+            '${avg.toInt()}',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.bambooDeep,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -557,10 +656,21 @@ class _MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      borderRadius: BorderRadius.circular(AppTheme.radius),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkCard : Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(
+            color: Colors.grey.withValues(alpha: 0.2),
+            width: 0.5,
+          ),
+        ),
         child: Row(
           children: [
             Icon(icon, size: 22, color: AppTheme.bamboo),
@@ -897,5 +1007,28 @@ class _Live2DModelPickerDialogState
         child: const Text('加载'),
       ),
     ];
+  }
+}
+
+/// 分组标题（角色 / 互动）
+class _SectionLabel extends StatelessWidget {
+  final String label;
+
+  const _SectionLabel(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey.shade500,
+          letterSpacing: 1,
+        ),
+      ),
+    );
   }
 }
