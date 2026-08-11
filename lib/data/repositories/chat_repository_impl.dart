@@ -15,6 +15,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'dart:async';
+import '../../core/services/backend_service.dart';
 import '../../domain/entities/message.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../services/chat_service.dart';
@@ -69,8 +70,11 @@ class ChatRepositoryImpl implements ChatRepository {
 
   @override
   Future<dynamic> getAffinity() async {
-    // TODO: 接入后端 /affinity 接口
-    return null;
+    try {
+      return await BackendService.instance.getAffinity();
+    } catch (_) {
+      return null;
+    }
   }
 
   @override

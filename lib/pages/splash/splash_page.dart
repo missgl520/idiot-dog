@@ -7,6 +7,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
+/// 隐私政策 / 用户协议版本号。条款更新时务必同步此版本，
+/// 以便未同意新版本的用户在下次启动时被要求重新确认。
+const String _legalVersion = '2026-08-11';
 
 /// 启动页 Widget：有状态，需要管理多个动画控制器
 class SplashPage extends StatefulWidget {
@@ -33,6 +38,9 @@ class _SplashPageState extends State<SplashPage>
   // 竹叶飘落动画控制器
   late AnimationController _leafController;
   late Animation<double> _leafAnim;
+
+  /// 用户是否已同意隐私政策 / 用户协议
+  bool _agreed = false;
 
   @override
   void initState() {
@@ -80,11 +88,70 @@ class _SplashPageState extends State<SplashPage>
     _fadeController.forward();
     _scaleController.forward();
 
-    // 2.5 秒后自动跳转到对话页
-    // mounted 检查：防止页面已销毁时调用导航导致异常
+    // 合规同意检查：已同意则延时跳转，未同意则弹窗
+    _initConsent();
+  }
+
+  /// 检查是否已同意当前版本的法律条款
+  Future<void> _initConsent() async {
+    final box = await Hive.openBox('settings');
+    final agreed = box.get('agreedToLegal', defaultValue: false) as bool;
+    final agreedVersion = box.get('agreedToLegalVersion', defaultValue: '') as String;
+    if (agreed && agreedVersion == _legalVersion) {
+      if (mounted) setState(() => _agreed = true);
+      _scheduleNavigate();
+    } else {
+      if (mounted) _showConsentDialog();
+    }
+  }
+
+  /// 已同意后延时跳转到对话页
+  void _scheduleNavigate() {
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (mounted) context.go('/chat');
     });
+  }
+
+  /// 首次启动 / 条款更新时的同意弹窗（不可点击遮罩关闭）
+  void _showConsentDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('欢迎使用竹笌'),
+        content: const SingleChildScrollView(
+          child: Text(
+            '竹笌是一款情感陪伴 AI，会收集并处理您的对话内容、语音及好感度等数据'
+            '以提供陪伴服务。\n\n'
+            '为保护您的权益，使用前请阅读并同意《隐私政策》与《用户协议》。'
+            '我们已对 AI 生成内容进行显著标识，并采用接口鉴权与多用户数据隔离等措施保护您的信息。',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => ctx.push('/legal?type=privacy'),
+            child: const Text('隐私政策'),
+          ),
+          TextButton(
+            onPressed: () => ctx.push('/legal?type=terms'),
+            child: const Text('用户协议'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final box = await Hive.openBox('settings');
+              await box.put('agreedToLegal', true);
+              await box.put('agreedToLegalVersion', _legalVersion);
+              if (mounted) {
+                Navigator.of(ctx).pop();
+                setState(() => _agreed = true);
+                context.go('/chat');
+              }
+            },
+            child: const Text('我已知晓并同意'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -104,7 +171,13 @@ class _SplashPageState extends State<SplashPage>
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1A1A2E) : const Color(0xFFF5F5DC),
       body: GestureDetector(
-        onTap: () => context.go('/chat'), // 点击跳过
+        onTap: () {
+          if (_agreed) {
+            context.go('/chat');
+          } else {
+            _showConsentDialog();
+          }
+        }, // 已同意则跳过，否则弹同意框
         child: Stack(
           children: [
             // 背景：淡绿渐变

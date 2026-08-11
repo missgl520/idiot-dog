@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:livekit_client/livekit_client.dart';
 
+import '../auth/client_auth.dart';
 import '../config.dart';
 
 /// 连接状态
@@ -138,8 +139,16 @@ class LiveKitService {
   }) async {
     try {
       final baseUrl = BackendConfig.instance.baseUrl;
+      final authUserId = await ClientAuth.instance.userId;
+      final headers = ClientAuth.instance.signedHeaders(
+        method: 'GET',
+        path: '/livekit/connect',
+        bodyBytes: const [],
+        userId: authUserId,
+      );
       final resp = await http.get(
         Uri.parse('$baseUrl/livekit/connect?room=$room&user_id=$userId'),
+        headers: headers,
       );
       if (resp.statusCode != 200) {
         throw Exception('获取 LiveKit 连接信息失败: ${resp.statusCode}');

@@ -15,6 +15,7 @@ import '../../pages/splash/splash_page.dart';
 import '../../pages/chat/chat_page.dart';
 import '../../pages/settings/memory_history_page.dart';
 import '../../pages/voice/voice_call_page.dart';
+import '../../pages/legal/legal_page.dart';
 
 /// GoRouter 实例 Provider
 /// main.dart 用 ref.watch(routerProvider) 注入到 MaterialApp.router
@@ -63,6 +64,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/memory-history',
         name: 'memory-history',
         builder: (context, state) => const MemoryHistoryPage(),
+      ),
+      // 法律文档页（隐私政策 / 用户协议）
+      GoRoute(
+        path: '/legal',
+        name: 'legal',
+        builder: (context, state) {
+          final type = state.uri.queryParameters['type'] ?? 'privacy';
+          return LegalPage(type: type);
+        },
       ),
     ],
   );

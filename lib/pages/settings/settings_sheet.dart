@@ -15,6 +15,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../core/theme/app_theme.dart';
 import '../../presentation/providers/app_providers.dart';
@@ -90,6 +91,26 @@ class SettingsSheet extends ConsumerWidget {
               expanded: expanded == 'model',
               onTap: () => _toggle(ref, 'model'),
               children: const _ModelContent(),
+            ),
+
+            _MenuDivider(isDark: isDark),
+
+            _MenuItem(
+              title: '隐私政策',
+              icon: Icons.privacy_tip_outlined,
+              expanded: false,
+              onTap: () => context.push('/legal?type=privacy'),
+              children: const SizedBox.shrink(),
+            ),
+
+            _MenuDivider(isDark: isDark),
+
+            _MenuItem(
+              title: '用户协议',
+              icon: Icons.description_outlined,
+              expanded: false,
+              onTap: () => context.push('/legal?type=terms'),
+              children: const SizedBox.shrink(),
             ),
 
             // 底部安全距离
@@ -388,7 +409,13 @@ class _ModelContent extends ConsumerWidget {
                 child: _ModeChip(
                   label: '🌐 国际版',
                   selected: !useCN,
-                  onTap: () {
+                  onTap: () async {
+                    // 切换到国际版可能涉及数据出境，需用户单独明确确认
+                    if (useCN) {
+                      final ok = await _confirmCrossBorder(context);
+                      if (!ok) return;
+                      Hive.box('settings').put('agnesUseCNCrossBorderAck', true);
+                    }
                     ref.read(agnesUseCNProvider.notifier).state = false;
                     Hive.box('settings').put('agnesUseCN', false);
                     ref.read(agnesServiceProvider).setUseCN(false);
@@ -506,4 +533,31 @@ class _ModeChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 切换到「国际版」模型前的跨境数据传输风险提示与确认。
+/// 返回 true 表示用户已明确同意，false 表示取消。
+Future<bool> _confirmCrossBorder(BuildContext context) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('切换到国际版'),
+      content: const Text(
+        '国际版模型服务部署在境外，切换后您的对话内容等个人信息将被传输至境外处理。'
+        '根据《个人信息保护法》，数据出境需您单独明确同意。\n\n'
+        '如仅在国内使用，建议保持「国内版」。是否仍要切换？',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('保持国内版'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: const Text('仍要切换（同意出境）'),
+        ),
+      ],
+    ),
+  );
+  return result == true;
 }

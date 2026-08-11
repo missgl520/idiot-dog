@@ -85,9 +85,18 @@ class _VoiceCallPageState extends ConsumerState<VoiceCallPage> {
     });
   }
 
-  void _toggleMute() {
+  void _toggleMute() async {
     setState(() => _isMuted = !_isMuted);
-    // TODO: 实际静音逻辑（取消/恢复麦克风发布）
+    try {
+      await _liveKit.setMuted(_isMuted);
+    } catch (e) {
+      // 静音失败不影响 UI 状态，仅回退标记
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('麦克风操作失败：$e')),
+        );
+      }
+    }
   }
 
   void _endCall() {

@@ -1,18 +1,18 @@
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 图片选择按钮（待接入）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 图片选择按钮（已接入 image_picker）
 //
-// 当前实现：弹出底部菜单提示"待接入"
-//
-// 后续接入 image_picker 包后替换方向：
-//   1. pubspec.yaml 添加依赖：image_picker: ^1.1.2
-//   2. import 'package:image_picker/image_picker.dart';
-//   3. 相册：ImagePicker().pickImage(source: ImageSource.gallery)
-//   4. 相机：ImagePicker().pickImage(source: ImageSource.camera)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 触发：聊天输入区「＋」按钮
+// 能力：从相册选择 / 拍照，选定后通过 onImagePicked 回调返回本地路径
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ImagePickerButton extends StatelessWidget {
-  const ImagePickerButton({super.key});
+  const ImagePickerButton({super.key, this.onImagePicked});
+
+  /// 选定图片后的回调（返回本地文件路径）
+  final void Function(String path)? onImagePicked;
 
   void _showPicker(BuildContext context) {
     showModalBottomSheet(
@@ -26,10 +26,7 @@ class ImagePickerButton extends StatelessWidget {
               title: const Text('从相册选择'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: 接入 image_picker
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('图片选择器待接入')),
-                );
+                _pick(ImageSource.gallery, context);
               },
             ),
             ListTile(
@@ -37,16 +34,30 @@ class ImagePickerButton extends StatelessWidget {
               title: const Text('拍照'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: 接入 image_picker
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('相机待接入')),
-                );
+                _pick(ImageSource.camera, context);
               },
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _pick(ImageSource source, BuildContext context) async {
+    try {
+      final xfile = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1920,
+        imageQuality: 85,
+      );
+      if (xfile != null) onImagePicked?.call(xfile.path);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('选择图片失败：$e')),
+        );
+      }
+    }
   }
 
   @override

@@ -19,6 +19,7 @@ import '../../presentation/providers/chat_provider.dart';
 import '../../widgets/live2d_controller.dart';
 import '../../widgets/live2d_widget.dart';
 import '../../widgets/voice_button.dart';
+import '../../widgets/image_picker_button.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -143,6 +144,16 @@ class _ChatPageState extends ConsumerState<ChatPage>
 
     // 交给 ChatNotifier（核心逻辑走新架构）
     ref.read(chatNotifierProvider.notifier).sendMessage(text);
+  }
+
+  // ━━━ 图片选择回调 ━━━
+
+  void _onImagePicked(String path) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已选择图片：${path.split('/').last}（多模态发送待接入）'),
+      ),
+    );
   }
 
   // ━━━ 滚动 ━━━
@@ -404,6 +415,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  ImagePickerButton(onImagePicked: _onImagePicked),
                   VoiceButton(),
                   const SizedBox(width: 12),
                   Expanded(
@@ -520,16 +532,39 @@ class _LetterEntry extends StatelessWidget {
         crossAxisAlignment:
             isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          Text(
-            isUser ? '我' : '竹笌',
-            style: TextStyle(
-              fontSize: 11,
-              color: isUser
-                  ? Theme.of(context).textTheme.bodySmall?.color
-                  : const Color(0xFF6B9E78).withValues(alpha: 0.7),
-              letterSpacing: 3,
-              fontWeight: FontWeight.w500,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isUser ? '我' : '竹笌',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isUser
+                      ? Theme.of(context).textTheme.bodySmall?.color
+                      : const Color(0xFF6B9E78).withValues(alpha: 0.7),
+                  letterSpacing: 3,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (!isUser) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6B9E78).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'AI 生成',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Color(0xFF6B9E78),
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 6),
           Container(

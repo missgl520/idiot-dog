@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../security/local_encryption.dart';
 import '../../presentation/providers/app_providers.dart';
 
 // ━━━━━━━━━━━━━━━ 后端接口（HTTP） ━━━━━━━━━━━━━━━
@@ -99,7 +100,7 @@ class MemoryItem {
 /// 搜索策略：BM25 关键词匹配 + 时间衰减
 class MemoryService {
   static const _dbName = 'zhuyu_memory.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
 
   Database? _db;
   bool _isInitialized = false;
@@ -117,11 +118,17 @@ class MemoryService {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, _dbName);
 
-    _db = await openDatabase(path, version: _dbVersion, onCreate: _onCreate);
+    _db = await openDatabase(
+      path,
+      version: _dbVersion,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
     _isInitialized = true;
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    // v2：content 字段为密文（at-rest 加密），不再建 FTS5 明文索引。
     await db.execute('''
       CREATE TABLE IF NOT EXISTS memories (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,45 +141,23 @@ class MemoryService {
         ttl         TEXT
       )
     ''');
-
-    await db.execute('''
-      CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
-        content,
-        category,
-        content='memories',
-        content_rowid='id'
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN
-        INSERT INTO memories_fts(rowid, content, category)
-        VALUES (new.id, new.content, new.category);
-      END
-    ''');
-
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN
-        INSERT INTO memories_fts(memories_fts, rowid, content, category)
-        VALUES ('delete', old.id, old.content, old.category);
-      END
-    ''');
-
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE ON memories BEGIN
-        INSERT INTO memories_fts(memories_fts, rowid, content, category)
-        VALUES ('delete', old.id, old.content, old.category);
-        INSERT INTO memories_fts(rowid, content, category)
-        VALUES (new.id, new.content, new.category);
-      END
-    ''');
-
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category)',
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_memories_created ON memories(created_at)',
     );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // v1 → v2：移除 FTS5 明文索引（content 改为密文，FTS 全文检索失效，
+    // 搜索降级为内存解密后子串过滤）。
+    if (oldVersion < 2) {
+      await db.execute('DROP TRIGGER IF EXISTS memories_ai');
+      await db.execute('DROP TRIGGER IF EXISTS memories_ad');
+      await db.execute('DROP TRIGGER IF EXISTS memories_au');
+      await db.execute('DROP TABLE IF EXISTS memories_fts');
+    }
   }
 
   // ━━━ 基础 CRUD ━━━
@@ -186,8 +171,10 @@ class MemoryService {
   }) async {
     if (!_isInitialized) await init();
     final now = DateTime.now().toIso8601String();
+    // content 字段为密文（at-rest 加密）
+    final encrypted = await LocalEncryption.encrypt(content);
     return await _db!.insert('memories', {
-      'content': content,
+      'content': encrypted,
       'category': category,
       'tags': (tags ?? []).toString(),
       'importance': importance,
@@ -202,8 +189,11 @@ class MemoryService {
     await _db!.transaction((txn) async {
       final now = DateTime.now().toIso8601String();
       for (final item in items) {
+        final encrypted = await LocalEncryption.encrypt(
+          item['content'] as String,
+        );
         final id = await txn.insert('memories', {
-          'content': item['content'] as String,
+          'content': encrypted,
           'category': item['category'] as String? ?? 'general',
           'tags': (item['tags'] as List<String>? ?? []).toString(),
           'importance': item['importance'] as double? ?? 0.5,
@@ -218,9 +208,17 @@ class MemoryService {
 
   Future<MemoryItem?> get(int id) async {
     if (!_isInitialized) await init();
-    final rows = await _db!.query('memories', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await _db!.query(
+      'memories',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
     if (rows.isEmpty) return null;
-    return _rowToMemory(rows.first);
+    final content = await LocalEncryption.decrypt(
+      rows.first['content'] as String,
+    );
+    return _rowToMemory(rows.first, decryptedContent: content);
   }
 
   Future<void> update(int id, {String? content, String? category}) async {
@@ -228,7 +226,9 @@ class MemoryService {
     final updates = <String, dynamic>{
       'updated_at': DateTime.now().toIso8601String(),
     };
-    if (content != null) updates['content'] = content;
+    if (content != null) {
+      updates['content'] = await LocalEncryption.encrypt(content);
+    }
     if (category != null) updates['category'] = category;
     await _db!.update('memories', updates, where: 'id = ?', whereArgs: [id]);
   }
@@ -243,53 +243,45 @@ class MemoryService {
     await _db!.delete('memories', where: 'category = ?', whereArgs: [category]);
   }
 
-  // ━━━ 搜索（本地 BM25） ━━━
+  // ━━━ 搜索（内存解密后子串过滤） ━━━
+  //
+  // content 已加密，FTS5 全文索引失效。本地记忆仅为后端不通时的兜底，
+  // 数据量小，故拉取全部、内存解密后按子串（中文友好）过滤。
 
-  String _ftsQuery(String query) {
-    final words = query.trim().split(RegExp(r'\s+'));
-    final terms = <String>[];
-    for (final w in words) {
-      terms.add('$w*');
-      for (int i = 0; i < w.length; i++) {
-        terms.add('${w[i]}*');
-      }
+  /// 取全部记忆并解密 content，按 created_at 倒序
+  Future<List<MemoryItem>> _getAllDecrypted() async {
+    if (!_isInitialized) await init();
+    final rows = await _db!.query(
+      'memories',
+      orderBy: 'created_at DESC',
+    );
+    final out = <MemoryItem>[];
+    for (final row in rows) {
+      final content = await LocalEncryption.decrypt(
+        row['content'] as String,
+      );
+      out.add(_rowToMemory(row, decryptedContent: content));
     }
-    return terms.join(' ');
+    return out;
   }
 
   Future<List<MemoryItem>> keywordSearch(String query, {int limit = 10}) async {
-    if (!_isInitialized) await init();
-    if (query.trim().isEmpty) return [];
-
-    final rows = await _db!.rawQuery('''
-      SELECT memories.*, -bm25(memories_fts) AS score
-      FROM memories
-      JOIN memories_fts ON memories.id = memories_fts.rowid
-      WHERE memories_fts MATCH ?
-      ORDER BY score DESC
-      LIMIT ?
-    ''', [_ftsQuery(query), limit]);
-
-    return rows.map(_rowToMemory).toList();
+    return search(query, limit: limit);
   }
 
   Future<List<MemoryItem>> search(String query, {int limit = 10}) async {
     if (!_isInitialized) await init();
-    if (query.trim().isEmpty) return [];
-
-    final now = DateTime.now();
-    final rows = await _db!.rawQuery('''
-      SELECT memories.*,
-             (-bm25(memories_fts)) * 0.7 +
-             (1 - MIN(1.0, julianday(?) - julianday(created_at))) * 0.3 AS score
-      FROM memories
-      JOIN memories_fts ON memories.id = memories_fts.rowid
-      WHERE memories_fts MATCH ?
-      ORDER BY score DESC
-      LIMIT ?
-    ''', [now.toIso8601String(), _ftsQuery(query), limit]);
-
-    return rows.map(_rowToMemory).toList();
+    final q = query.trim().toLowerCase();
+    final all = await _getAllDecrypted();
+    if (q.isEmpty) return all.take(limit).toList();
+    final out = <MemoryItem>[];
+    for (final m in all) {
+      if (m.content.toLowerCase().contains(q)) {
+        out.add(m);
+        if (out.length >= limit) break;
+      }
+    }
+    return out;
   }
 
   Future<List<MemoryItem>> searchByCategory(
@@ -298,39 +290,36 @@ class MemoryService {
     int limit = 10,
   }) async {
     if (!_isInitialized) await init();
-    if (query.trim().isEmpty) return [];
-
-    final now = DateTime.now();
-    final rows = await _db!.rawQuery('''
-      SELECT memories.*,
-             (-bm25(memories_fts)) * 0.7 +
-             (1 - MIN(1.0, julianday(?) - julianday(created_at))) * 0.3 AS score
-      FROM memories
-      JOIN memories_fts ON memories.id = memories_fts.rowid
-      WHERE memories_fts MATCH ? AND memories.category = ?
-      ORDER BY score DESC
-      LIMIT ?
-    ''', [now.toIso8601String(), _ftsQuery(query), category, limit]);
-
-    return rows.map(_rowToMemory).toList();
+    final q = query.trim().toLowerCase();
+    final all = await _getAllDecrypted();
+    final out = <MemoryItem>[];
+    for (final m in all) {
+      if (m.category != category) continue;
+      if (q.isEmpty || m.content.toLowerCase().contains(q)) {
+        out.add(m);
+        if (out.length >= limit) break;
+      }
+    }
+    return out;
   }
 
   Future<List<MemoryItem>> getRecent({int limit = 20, String? category}) async {
     if (!_isInitialized) await init();
-
-    final where = category != null
-        ? 'category = ? ORDER BY created_at DESC LIMIT ?'
-        : 'ORDER BY created_at DESC LIMIT ?';
-
-    final args = category != null
-        ? [category, limit]
-        : [limit];
-
-    final rows = await _db!.rawQuery(
-      'SELECT * FROM memories $where',
-      args,
+    final rows = await _db!.query(
+      'memories',
+      where: category != null ? 'category = ?' : null,
+      whereArgs: category != null ? [category] : null,
+      orderBy: 'created_at DESC',
+      limit: limit,
     );
-    return rows.map(_rowToMemory).toList();
+    final out = <MemoryItem>[];
+    for (final row in rows) {
+      final content = await LocalEncryption.decrypt(
+        row['content'] as String,
+      );
+      out.add(_rowToMemory(row, decryptedContent: content));
+    }
+    return out;
   }
 
   // ━━━ 上下文构建（调后端 SinoMem） ━━━
@@ -358,7 +347,11 @@ class MemoryService {
 
   // ━━━ 内部 ━━━
 
-  MemoryItem _rowToMemory(Map<String, dynamic> row) {
+  MemoryItem _rowToMemory(
+    Map<String, dynamic> row, {
+    String? decryptedContent,
+  }) {
+    final content = decryptedContent ?? (row['content'] as String);
     final tagsStr = row['tags'] as String? ?? '[]';
     List<String> tags;
     try {
@@ -376,7 +369,7 @@ class MemoryService {
 
     return MemoryItem(
       id: row['id'] as int,
-      content: row['content'] as String,
+      content: content,
       category: row['category'] as String,
       tags: tags,
       importance: (row['importance'] as num?)?.toDouble() ?? 0.5,

@@ -30,6 +30,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import '../../core/auth/client_auth.dart';
 import '../../core/config.dart';
 
 import '../../domain/entities/message.dart';
@@ -37,11 +38,13 @@ import '../../domain/entities/message.dart';
 /// 3. 将事件转换为 ChatEvent 推送给调用方
 class ChatService {
   ChatService({Dio? dio})
-      : _dio = dio ?? Dio(BaseOptions(
-          baseUrl: BackendConfig.instance.baseUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 30),
-        ));
+      : _dio = (dio ??
+            Dio(BaseOptions(
+              baseUrl: BackendConfig.instance.baseUrl,
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 30),
+            )))
+          ..interceptors.add(SigningInterceptor());
 
   final Dio _dio;
 
@@ -117,7 +120,7 @@ class ChatService {
           final trimmed = line.trim();
           if (trimmed.isEmpty) {
             // \n\n 分隔符，一条事件结束了
-            _dispatch(_currentEvent, _textBuffer.toString(), onText, onEmotion, onAffinity);
+            _dispatch(_currentEvent, _textBuffer.toString(), onText, onEmotion, onAffinity, onError);
             _textBuffer.clear();
             _currentEvent = 'text'; // 重置默认事件类型
             continue;
@@ -135,7 +138,7 @@ class ChatService {
 
       // 流结束，最后一条事件可能没有 \n\n
       if (_textBuffer.isNotEmpty) {
-        _dispatch(_currentEvent, _textBuffer.toString(), onText, onEmotion, onAffinity);
+        _dispatch(_currentEvent, _textBuffer.toString(), onText, onEmotion, onAffinity, onError);
       }
 
       onDone?.call();
@@ -157,6 +160,7 @@ class ChatService {
     void Function(String token) onText,
     void Function(String emotion, double confidence)? onEmotion,
     void Function(Map<String, dynamic> affinity)? onAffinity,
+    void Function(String error)? onError,
   ) {
     if (rawData.isEmpty) return;
 
@@ -182,6 +186,16 @@ class ChatService {
         case 'affinity':
           // 好感度变化
           onAffinity?.call(json);
+          break;
+
+        case 'meta':
+          // AI 生成内容标识（后端下发，前端可按需展示）
+          break;
+
+        case 'blocked':
+          // 用户输入命中违规过滤，后端拒绝生成
+          final reason = json['reason'] as String? ?? '内容被拦截';
+          onError?.call(reason);
           break;
 
         case 'done':

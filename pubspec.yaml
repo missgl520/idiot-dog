@@ -101,6 +101,14 @@ dependencies:
   url_launcher: ^6.3.1
   livekit_client: ^2.10.0
   file_picker: ^8.1.7
+  # 接口请求签名（HMAC-SHA256，与后端 auth.py 对齐）
+  crypto: ^3.0.6
+  # 图片选择（相册 / 相机）
+  image_picker: ^1.1.2
+  # 本地存储静态加密（AES-256-CBC，密钥存 secure storage）
+  # pointycastle 已随 livekit_client 引入（^4），显式声明以保证可用
+  pointycastle: ^4.0.0
+  flutter_secure_storage: ^9.2.0
 
 dev_dependencies:
   # Flutter 测试框架

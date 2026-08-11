@@ -18,6 +18,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import 'package:dio/dio.dart';
+import '../../core/auth/client_auth.dart';
 import '../../core/config.dart';
 import '../../data/services/chat_service.dart';
 import '../../domain/entities/message.dart' as domain;
@@ -38,7 +39,7 @@ class BackendService {
     baseUrl: BackendConfig.instance.baseUrl,
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 30),
-  ));
+  ))..interceptors.add(SigningInterceptor());
 
   /// 底层 SSE 对话服务（复用 ChatService）
   final ChatService _chatService = ChatService();
