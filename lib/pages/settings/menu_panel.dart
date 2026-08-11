@@ -136,6 +136,17 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
             // ── 好感度详情 ──
             _AffinityPanel(affinity: affinity),
 
+            // ── 连接分组 ──
+            const _SectionLabel('连接'),
+
+            // ── 后端地址 ──
+            _MenuTile(
+              icon: Icons.cloud_outlined,
+              title: '后端地址',
+              subtitle: BackendConfig.instance.baseUrl,
+              onTap: () => _showBackendUrlEditor(context),
+            ),
+
             // 底部安全距离
             const SizedBox(height: 12),
           ],
@@ -221,6 +232,105 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
         content: Text('唤醒词已保存为：$trimmed'),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showBackendUrlEditor(BuildContext context) {
+    final controller = TextEditingController(text: BackendConfig.instance.baseUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.cloud_outlined, color: AppTheme.bamboo, size: 20),
+            SizedBox(width: 8),
+            Text('后端地址'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '竹笌需要连接到后端才能聊天、记忆与同步。填写后端服务地址（http/https）。',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: '后端地址',
+                hintText: '例如 http://192.168.1.100:8000',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.url,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (v) => _saveBackendUrl(ctx, controller.text, context),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '本机调试：电脑运行后端后用局域网 IP；安卓模拟器用 http://10.0.2.2:8000',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => _saveBackendUrl(ctx, controller.text, context),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveBackendUrl(
+    BuildContext dialogContext,
+    String url,
+    BuildContext scaffoldContext,
+  ) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return;
+    // 提前捕获 messenger，避免跨 await 使用 BuildContext
+    final messenger = ScaffoldMessenger.of(scaffoldContext);
+    try {
+      BackendService.instance.setBackendUrl(trimmed);
+    } catch (_) {
+      Navigator.pop(dialogContext);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('地址格式不正确：需以 http:// 或 https:// 开头'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    Navigator.pop(dialogContext);
+    setState(() {});
+    if (!mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('后端地址已保存'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    // 探测连通性，给出明确反馈
+    final ok = await BackendService.instance.healthCheck();
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(ok
+            ? '已成功连接后端 ✅'
+            : '已保存，但暂时连不上后端（请确认后端已启动、地址与端口正确）'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
       ),
     );
   }

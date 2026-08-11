@@ -48,6 +48,11 @@ class ChatService {
 
   final Dio _dio;
 
+  /// 运行时更新后端地址（设置页修改后调用，避免重建实例）
+  void setBaseUrl(String url) {
+    _dio.options.baseUrl = url;
+  }
+
   /// 发送消息并获取流式响应
   ///
   /// [message]      用户输入的文字

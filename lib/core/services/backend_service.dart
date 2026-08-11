@@ -90,6 +90,16 @@ class BackendService {
     }
   }
 
+  /// 修改后端地址并立即对已在用的 Dio 客户端生效
+  ///
+  /// 设置页「后端地址」保存时调用。仅写 Hive/内存不足以生效，
+  /// 因为 [BackendService] 与 [ChatService] 的 Dio 在构造时已固化 baseUrl。
+  void setBackendUrl(String url) {
+    BackendConfig.instance.setBaseUrl(url); // 校验格式 + 写入 Hive + 更新 _baseUrl
+    _dio.options.baseUrl = url;
+    _chatService.setBaseUrl(url);
+  }
+
   /// 同步唤醒词到后端
   /// 本地改了唤醒词后，调用此方法让后端也生效
   Future<bool> syncWakeWord(String word) async {
