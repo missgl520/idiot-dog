@@ -124,7 +124,11 @@ flutter:
   # 项目静态资源目录
   assets:
     # Live2D 模型资源目录
+    # 注意：本环境 Flutter 对目录资源声明不递归子目录，
+    # 因此贴图(textures)与动作(motions)必须显式列出，否则模型会缺贴图/动作而渲染空白。
     - assets/live2d/zhuyabudoll/
+    - assets/live2d/zhuyabudoll/textures/
+    - assets/live2d/zhuyabudoll/motions/
     # 全局 Logo 竹子图案（v1.9）
     - assets/logo.png
     - assets/logo/
