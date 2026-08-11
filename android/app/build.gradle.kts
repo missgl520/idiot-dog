@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     // Android 应用插件
     id("com.android.application")
@@ -32,11 +34,30 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            val keyPropsFile = rootProject.file("key.properties")
+            if (keyPropsFile.exists()) {
+                val props = Properties()
+                keyPropsFile.inputStream().use { stream -> props.load(stream) }
+                storeFile = file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // 发布构建目前使用 debug 签名配置，方便 `flutter run --release` 直接运行
-            // 正式上线前请替换为正式的 release 签名配置
-            signingConfig = signingConfigs.getByName("debug")
+            // 使用正式的 release 签名（key.properties + upload-keystore.jks）
+            // 无 key.properties 时回退到 debug 签名，保证本地 `flutter run --release` 可用
+            signingConfig = if (signingConfigs.findByName("release")?.storeFile != null)
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
