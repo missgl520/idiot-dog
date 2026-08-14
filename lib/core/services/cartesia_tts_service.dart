@@ -51,6 +51,14 @@ class CartesiaTTSService {
   /// Cartesia API 地址
   static const _apiUrl = 'https://api.cartesia.ai/tts/stream';
 
+  /// Cartesia API Key（生产用 --dart-define=CARTESIA_API_KEY=xxx 注入）。
+  /// 留空表示未配置，speak() 会返回 false 让上层降级到系统 TTS。
+  static const String _apiKey =
+      String.fromEnvironment('CARTESIA_API_KEY', defaultValue: '');
+
+  /// 是否已配置真实 API Key（未配置时上层应降级到系统 TTS）。
+  bool get isConfigured => _apiKey.isNotEmpty;
+
   /// 角色 → Voice ID 映射（Cartesia 官方音色）
   /// 这些 voice_id 是 Cartesia 平台注册过的音色
   static const _voiceIds = {
@@ -92,7 +100,10 @@ class CartesiaTTSService {
   /// [text]     要说的话
   /// [persona]  情感角色（gentle / playful / wise）
   /// [cache]    是否使用缓存（默认 true）
-  Future<void> speak(
+  ///
+  /// 返回 true 表示已成功播音（含缓存命中），false 表示失败，
+  /// 调用方应据此降级到系统 TTS。
+  Future<bool> speak(
     String text, {
     PersonaVoice? persona,
     bool cache = true,
@@ -103,29 +114,42 @@ class CartesiaTTSService {
     if (cache) {
       final cachedFile = await _getCachedFile(text, voice);
       if (await cachedFile.exists()) {
-        await _player.setFilePath(cachedFile.path);
-        await _player.play();
-        return;
+        try {
+          await _player.setFilePath(cachedFile.path);
+          await _player.play();
+          return true;
+        } catch (_) {
+          return false;
+        }
       }
     }
 
-    // 2. 调用 API
+    // 2. 调用 API（未配置 Key 时直接失败，触发上层降级）
     final audioBytes = await _fetchTTS(text, voice);
-    if (audioBytes == null) return;
+    if (audioBytes == null) return false;
 
     // 3. 写缓存
     if (cache) {
       final file = await _getCachedFile(text, voice);
-      await file.writeAsBytes(audioBytes);
+      try {
+        await file.writeAsBytes(audioBytes);
+      } catch (_) {
+        // 缓存写失败不致命，仍可播放
+      }
     }
 
     // 4. 播放（缓存命中时直接播文件，API 返回时用 StreamAudioSource）
-    if (cache) {
-      await _player.setFilePath((await _getCachedFile(text, voice)).path);
-    } else {
-      await _player.setAudioSource(_BytesAudioSource(audioBytes!));
+    try {
+      if (cache) {
+        await _player.setFilePath((await _getCachedFile(text, voice)).path);
+      } else {
+        await _player.setAudioSource(_BytesAudioSource(audioBytes));
+      }
+      await _player.play();
+      return true;
+    } catch (_) {
+      return false;
     }
-    await _player.play();
   }
 
   /// 获取缓存文件路径
@@ -137,6 +161,8 @@ class CartesiaTTSService {
 
   /// 调用 Cartesia API
   Future<List<int>?> _fetchTTS(String text, PersonaVoice persona) async {
+    // 未配置真实 Key 时直接失败，让上层降级到系统 TTS
+    if (!isConfigured) return null;
     try {
       final resp = await _dio.post(
         _apiUrl,
@@ -148,7 +174,7 @@ class CartesiaTTSService {
         },
         options: Options(
           headers: {
-            'Authorization': 'Bearer YOUR_API_KEY', // ⚠️ 替换为真实 key
+            'Authorization': 'Bearer $_apiKey',
             'Content-Type': 'application/json',
           },
           responseType: ResponseType.bytes,

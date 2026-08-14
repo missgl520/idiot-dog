@@ -17,6 +17,7 @@ import 'package:http/http.dart' as http;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../security/local_encryption.dart';
+import '../auth/client_auth.dart';
 import '../../presentation/providers/app_providers.dart';
 
 // ━━━━━━━━━━━━━━━ 后端接口（HTTP） ━━━━━━━━━━━━━━━
@@ -42,7 +43,16 @@ Future<String> _fetchMemoryContextFromBackend(
   );
 
   try {
-    final resp = await http.get(uri).timeout(const Duration(seconds: 5));
+    // 后端 /memory/search 强制签名鉴权，必须带上 X-Api-Key/签名等头，
+    // 否则返回 401，后端长期记忆路径会整体失效。
+    final userId = await ClientAuth.instance.userId;
+    final headers = ClientAuth.instance.signedHeaders(
+      method: 'GET',
+      path: '/memory/search',
+      bodyBytes: const [],
+      userId: userId,
+    );
+    final resp = await http.get(uri, headers: headers).timeout(const Duration(seconds: 5));
     if (resp.statusCode != 200) return '';
 
     final data = jsonDecode(resp.body) as Map<String, dynamic>;

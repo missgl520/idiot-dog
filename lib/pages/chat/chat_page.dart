@@ -84,7 +84,56 @@ class _ChatPageState extends ConsumerState<ChatPage>
           ref.read(old_providers.asrResultProvider.notifier).state = null;
         }
       });
+
+      // 新架构：监听对话完成，触发 TTS 朗读（语音陪聊核心能力）
+      ref.listenManual(chatNotifierProvider, (prev, next) {
+        final prevLast =
+            prev?.messages.isNotEmpty == true ? prev!.messages.last : null;
+        final nextLast =
+            next.messages.isNotEmpty ? next.messages.last : null;
+        // 仅当新增了一条 assistant 消息时才朗读，
+        // 避免 thinking/writing 等状态变化重复触发
+        if (nextLast != null &&
+            nextLast.role == 'assistant' &&
+            prevLast?.id != nextLast.id) {
+          _speakReply(nextLast.content);
+        }
+      });
     });
+  }
+
+  // ━━━ TTS 朗读 ━━━
+
+  /// 触发竹笌回复的语音朗读（语音陪聊核心能力）。
+  /// - 按设置页的 TTS 模式选择 Cartesia / 系统 TTS；
+  /// - Cartesia 未配置或失败时自动降级到系统 TTS，保证一定出声；
+  /// - 朗读期间同步 Live2D 的「说话」动画。
+  Future<void> _speakReply(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    final ttsEnabled = ref.read(old_providers.ttsEnabledProvider);
+    if (!ttsEnabled) return;
+
+    final l2dCtrl = ref.read(old_providers.live2dControllerProvider);
+    l2dCtrl.setStatus(ZhuaLive2DStatus.speaking);
+
+    final mode = ref.read(old_providers.ttsModeProvider);
+    try {
+      if (mode == 'cartesia') {
+        final ok = await ref
+            .read(old_providers.cartesiaTtsServiceProvider)
+            .speak(trimmed);
+        if (!ok) {
+          await ref.read(old_providers.ttsServiceProvider).speak(trimmed);
+        }
+      } else {
+        await ref.read(old_providers.ttsServiceProvider).speak(trimmed);
+      }
+    } catch (_) {
+      // 朗读失败不影响对话完整性
+    } finally {
+      l2dCtrl.setStatus(ZhuaLive2DStatus.idle);
+    }
   }
 
   // ━━━ Live2D 同步 ━━━
@@ -225,9 +274,11 @@ class _ChatPageState extends ConsumerState<ChatPage>
                             ? Colors.black.withValues(alpha: 0.34)
                             : AppTheme.bamboo.withValues(alpha: 0.06),
                         padding: EdgeInsets.zero,
-                        child: messages.isEmpty
+                        child: (messages.isEmpty &&
+                                !(status == ConversationStatus.writing &&
+                                    (chatState.currentText?.isNotEmpty ?? false)))
                             ? _buildEmpty(isDark, status)
-                            : _buildLetterList(messages, status),
+                            : _buildLetterList(chatState, status),
                       ),
                     ),
                   ),
@@ -372,14 +423,23 @@ class _ChatPageState extends ConsumerState<ChatPage>
 
   // ━━━ 信纸列表 ━━━
 
-  Widget _buildLetterList(List<entities.Message> messages, ConversationStatus status) {
+  Widget _buildLetterList(ChatState chatState, ConversationStatus status) {
+    final messages = chatState.messages;
+    // 打字中且已有输出片段：在末尾追加一条"正在输入"的临时条目，
+    // 让 SSE 流式文字实时可见（否则只有 done 后整段突然出现）。
+    final typing = status == ConversationStatus.writing &&
+        (chatState.currentText?.isNotEmpty ?? false);
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-      itemCount: messages.length + 1,
+      itemCount: messages.length + 1 + (typing ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == 0) return const SizedBox(height: 40);
-        return _LetterEntry(message: messages[index - 1]);
+        final msgIndex = index - 1;
+        if (typing && msgIndex == messages.length) {
+          return _LetterEntry.typing(chatState.currentText!);
+        }
+        return _LetterEntry(message: messages[msgIndex]);
       },
     );
   }
@@ -522,6 +582,16 @@ class _LetterEntry extends StatelessWidget {
   final entities.Message message;
 
   const _LetterEntry({required this.message});
+
+  /// 打字中临时条目：展示 SSE 正在流式输出的文字 + 打字光标。
+  _LetterEntry.typing(String text)
+      : message = entities.Message(
+          id: '__typing__',
+          role: 'assistant',
+          content: text,
+          timestamp: DateTime.now(),
+          isStreaming: true,
+        );
 
   bool get isUser => message.role == 'user';
 

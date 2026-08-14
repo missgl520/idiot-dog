@@ -142,9 +142,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // 2. 流式接收竹笌回复
     String fullText = '';
 
+    // history 不含「当前这条」用户消息：ChatService 会单独把 message 字段
+    // 拼到请求体末尾，若这里再把当前消息塞进 history，后端会收到两份重复的
+    // 当前用户消息，污染上下文。state.messages 末尾即刚加入的 userMsg。
+    final history = state.messages.length > 1
+        ? state.messages.sublist(0, state.messages.length - 1)
+        : const <Message>[];
+
     await for (final event in _repository.sendMessageStream(
       message: text,
-      history: state.messages,
+      history: history,
     )) {
       switch (event.type) {
         case ChatEventType.token:
