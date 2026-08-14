@@ -40,9 +40,20 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- 录音权限：语音输入与 ASR 语音识别需要 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <!-- 蓝牙权限：部分语音交互场景可能使用蓝牙耳机 -->
-    <uses-permission android:name="android.permission.BLUETOOTH"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <!-- 相机权限：拍照发送图片附件需要（非强制） -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- 相册权限：选择图片发送附件需要，按 Android 版本分别声明 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+    <!-- 蓝牙权限：语音通话场景下连接蓝牙耳机等音频外设（Android 12+ 需新权限） -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30"/>
 
     <!-- 查询能够处理文本的 Activity，Flutter 文本处理插件会使用到 -->
     <queries>
