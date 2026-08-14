@@ -56,8 +56,8 @@ class ZhuaLive2DController {
     return _viewController!;
   }
 
-  static const String _modelDir = 'assets/live2d/zhuyabudoll/';
-  static const String _modelFile = 'zhuyabudoll.model3.json';
+  static const String _modelDir = 'assets/live2d/ren/';
+  static const String _modelFile = 'Ren.model3.json';
 
   bool get modelLoaded => _modelLoaded;
   bool get disposed => _disposed;
@@ -73,8 +73,8 @@ class ZhuaLive2DController {
       );
       _modelLoaded = ok;
       if (ok) {
-        await viewController.startMotion(group: 'idle', priority: 1);
-        await viewController.setExpression(0); // f01 默认表情
+        await viewController.startMotion(group: 'Idle', priority: 1);
+        await viewController.setExpression(0); // exp_01 默认表情
       }
     } catch (e) {
       debugPrint('[ZhuaLive2D] 加载失败: $e');
@@ -91,19 +91,19 @@ class ZhuaLive2DController {
       switch (status) {
         case ZhuaLive2DStatus.idle:
           await viewController.setExpression(0);
-          await viewController.startMotion(group: 'idle', priority: 1);
+          await viewController.startMotion(group: 'Idle', priority: 1);
           await viewController.setParameter('ParamMouthOpenY', 0.0);
         case ZhuaLive2DStatus.thinking:
-          await viewController.setExpression(1); // f02 思考
+          await viewController.setExpression(1); // exp_02 思考
         case ZhuaLive2DStatus.speaking:
-          await viewController.setExpression(2); // f03 说话
+          await viewController.setExpression(2); // exp_03 说话
           await viewController.startMotion(
-            group: 'tap_body',
-            index: Random().nextInt(3),
+            group: 'TapBody',
+            index: Random().nextInt(2),
             priority: 2,
           );
         case ZhuaLive2DStatus.listening:
-          await viewController.setExpression(3); // f04 专注
+          await viewController.setExpression(3); // exp_04 专注
       }
     } catch (e) {
       debugPrint('[ZhuaLive2D] 动画失败: $e');
@@ -132,12 +132,14 @@ class ZhuaLive2DController {
   ///   anxious   → 8（焦虑，f09）
   Future<void> setEmotion(String emotion) async {
     if (!_modelLoaded || _disposed) return;
+    // Ren 模型仅 5 个表情（索引 0~4 = exp_01~exp_05），映射到可用范围
     final mapping = {
-      'happy':     4,
-      'sad':       5,
-      'angry':     6,
-      'surprised': 7,
-      'anxious':   8,
+      'neutral':   0,
+      'happy':     1,
+      'sad':       2,
+      'angry':     3,
+      'surprised': 4,
+      'anxious':   4,
     };
     final idx = mapping[emotion] ?? 0;
     try {
@@ -182,11 +184,11 @@ class ZhuaLive2DController {
     try {
       if (zone == TouchZone.head) {
         // 头区：随机切换表情
-        final expressions = [4, 5, 6];
+        final expressions = [0, 1, 2, 3, 4];
         await viewController.setExpression(
           expressions[Random().nextInt(expressions.length)],
         );
-        await viewController.startMotion(group: 'tap_body', index: 0, priority: 3);
+        await viewController.startMotion(group: 'TapBody', index: 0, priority: 3);
       } else {
         // 身体区：播放摇晃动画
         await playTap();
@@ -209,11 +211,11 @@ class ZhuaLive2DController {
     try {
       if (zone == TouchZone.head) {
         // 记录当前表情，切换害羞
-        await viewController.setExpression(7); // f07 害羞
-        await viewController.startMotion(group: 'tap_body', index: 1, priority: 4);
+        await viewController.setExpression(4); // exp_05 害羞/惊讶
+        await viewController.startMotion(group: 'TapBody', index: 1, priority: 4);
       } else {
         // 身体：持续摇晃，循环播放
-        await viewController.startMotion(group: 'tap_body', index: 2, priority: 4);
+        await viewController.startMotion(group: 'TapBody', index: 1, priority: 4);
       }
     } catch (e) {
       debugPrint('[ZhuaLive2D] 长按开始失败: $e');
@@ -229,7 +231,7 @@ class ZhuaLive2DController {
     try {
       if (_modelLoaded && !_disposed) {
         await viewController.setExpression(0); // 恢复默认表情
-        await viewController.startMotion(group: 'idle', priority: 1);
+        await viewController.startMotion(group: 'Idle', priority: 1);
       }
     } catch (e) {
       debugPrint('[ZhuaLive2D] 长按结束恢复失败: $e');
@@ -241,8 +243,8 @@ class ZhuaLive2DController {
   Future<void> playDoubleTap() async {
     if (!_modelLoaded || _disposed) return;
     try {
-      await viewController.setExpression(7); // f07 害羞
-      await viewController.startMotion(group: 'tap_body', index: 1, priority: 4);
+      await viewController.setExpression(4); // exp_05 害羞/惊讶
+      await viewController.startMotion(group: 'TapBody', index: 1, priority: 4);
       // 延迟恢复，用计数器方式防止竞态
       _scheduleRestore(2);
     } catch (e) {
@@ -270,8 +272,8 @@ class ZhuaLive2DController {
   Future<void> playTap() async {
     if (!_modelLoaded || _disposed) return;
     await viewController.startMotion(
-      group: 'tap_body',
-      index: Random().nextInt(3),
+      group: 'TapBody',
+      index: Random().nextInt(2),
       priority: 3,
     );
   }
@@ -297,7 +299,7 @@ class ZhuaLive2DController {
       _modelLoaded = ok;
       if (ok) {
         await viewController.setExpression(0);
-        await viewController.startMotion(group: 'idle', priority: 1);
+        await viewController.startMotion(group: 'Idle', priority: 1);
       }
     } catch (e) {
       debugPrint('[ZhuaLive2D] 外部模型加载失败: $e');
