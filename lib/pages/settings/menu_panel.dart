@@ -271,7 +271,8 @@ class _MenuPanelState extends ConsumerState<MenuPanel> {
             ),
             const SizedBox(height: 4),
             const Text(
-              '本机调试：电脑运行后端后用局域网 IP；安卓模拟器用 http://10.0.2.2:8000',
+              '本机调试：电脑运行后端后用局域网 IP；安卓模拟器用 http://10.0.2.2:8000。'
+              '部署到云服务器后填公网域名，如 http://你的域名:8000（公网建议用 https）。',
               style: TextStyle(fontSize: 11, color: Colors.grey),
             ),
           ],

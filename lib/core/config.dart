@@ -29,9 +29,11 @@ class BackendConfig {
   // 这些值会被 Hive 里的值覆盖
 
   /// 后端服务地址
-  /// 开发环境默认：ngrok 穿透地址
-  /// 生产环境：需要换成真实服务器域名
-  static const String _defaultBaseUrl = 'http://10.0.2.2:8000';
+  /// 开发环境默认：安卓模拟器地址 http://10.0.2.2:8000
+  /// 生产环境：打包时用 --dart-define=ZHUYU_API_BASE_URL=https://你的域名:8000 注入
+  ///   （也可直接用 http://域名:8000，但公网强烈建议走 HTTPS）
+  static const String _defaultBaseUrl =
+      String.fromEnvironment('ZHUYU_API_BASE_URL', defaultValue: 'http://10.0.2.2:8000');
 
   /// 默认唤醒词（用户还没设置过时的兜底值）
   static const String _defaultWakeWord = '竹笌竹笌';

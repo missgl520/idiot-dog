@@ -51,8 +51,9 @@ android {
     buildTypes {
         release {
             // 使用正式的 release 签名（key.properties + upload-keystore.jks）
-            // 无 key.properties 时回退到 debug 签名，保证本地 `flutter run --release` 可用
-            signingConfig = if (signingConfigs.findByName("release")?.storeFile != null)
+            // 若 keystore 文件实际不存在，回退到 debug 签名，保证本地 `flutter build apk` 可用
+            val releaseKeystore = signingConfigs.findByName("release")?.storeFile
+            signingConfig = if (releaseKeystore != null && releaseKeystore.exists())
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")

@@ -22,10 +22,11 @@ void main() async {
   // 初始化后端配置（必须先于 App 运行，因为它决定 Dio baseUrl）
   await BackendConfig.instance.init();
 
-  // 首次启动：写入默认后端地址（仅当 Hive 中无值时；用户在设置页改过的不覆盖）
-  // 开发联调：安卓模拟器用 10.0.2.2:8000；真机用电脑局域网 IP（见设置页说明）
+  // 首次启动：若用户从未改过后端地址，将默认值落库（默认 = 模拟器地址，
+  // 生产构建通过 --dart-define=ZHUYU_API_BASE_URL 注入域名后此处即域名）。
+  // 用户在设置页手动改过的不覆盖。
   if (Hive.box('settings').get('backendUrl') == null) {
-    Hive.box('settings').put('backendUrl', 'http://10.0.2.2:8000');
+    Hive.box('settings').put('backendUrl', BackendConfig.instance.baseUrl);
   }
 
   // Riverpod 跨组件状态管理，child 能通过 ref.watch/read 获取 providers
