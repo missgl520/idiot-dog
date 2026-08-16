@@ -15,10 +15,12 @@
 //   ZhuaLive2DController.instance.dispose()        // App 销毁时
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_live2d/flutter_live2d.dart';
+import '../core/services/lip_sync_service.dart';
 
 /// 竹笌的 Live2D 动画状态
 enum ZhuaLive2DStatus {
@@ -46,6 +48,10 @@ class ZhuaLive2DController {
   Live2DViewController? _viewController;
   bool _modelLoaded = false;
   bool _disposed = false;
+
+  /// 唇形同步服务（TTS 说话时驱动嘴巴开合）
+  final LipSyncService _lipSync = LipSyncService();
+  StreamSubscription<double>? _lipSub;
 
   /// 长按状态中（防止重复触发）
   bool _longPressing = false;
@@ -122,6 +128,25 @@ class ZhuaLive2DController {
     } catch (e) {
       debugPrint('[ZhuaLive2D] 口型设置失败: $e');
     }
+  }
+
+  /// 开始唇形同步：竹笌 TTS 说话时，让嘴巴随正弦波自然开合
+  ///
+  /// 内部启动 LipSyncService 的 60fps 嘴型动画，并把嘴型值接到 setMouthOpen。
+  /// [amplitude] 嘴型幅度，默认 0.5（说话时口型明显）；模型未加载则静默跳过。
+  void startLipSync({double amplitude = 0.5}) {
+    if (!_modelLoaded || _disposed) return;
+    _lipSync.start(amplitude: amplitude);
+    _lipSub?.cancel();
+    _lipSub = _lipSync.mouthStream.listen((v) => setMouthOpen(v));
+  }
+
+  /// 停止唇形同步：取消监听、停止动画并闭嘴复位
+  void stopLipSync() {
+    _lipSub?.cancel();
+    _lipSub = null;
+    _lipSync.stop();
+    setMouthOpen(0.0);
   }
 
   /// 根据情绪标签切换 Live2D 表情
@@ -313,6 +338,8 @@ class ZhuaLive2DController {
   void dispose() {
     _disposed = true;
     _longPressing = false;
+    _lipSub?.cancel();
+    _lipSync.dispose();
     _viewController?.dispose();
     _viewController = null;
     _modelLoaded = false;

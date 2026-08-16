@@ -116,6 +116,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
 
     final l2dCtrl = ref.read(old_providers.live2dControllerProvider);
     l2dCtrl.setStatus(ZhuaLive2DStatus.speaking);
+    l2dCtrl.startLipSync(); // TTS 朗读期间驱动 Live2D 唇形同步（嘴巴随说话开合）
 
     final mode = ref.read(old_providers.ttsModeProvider);
     try {
@@ -132,6 +133,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
     } catch (_) {
       // 朗读失败不影响对话完整性
     } finally {
+      l2dCtrl.stopLipSync(); // 停止唇形同步并闭嘴复位
       l2dCtrl.setStatus(ZhuaLive2DStatus.idle);
     }
   }
