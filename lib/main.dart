@@ -36,6 +36,7 @@ void main() async {
 /// 根 Widget：
 /// - MaterialApp.router：用 go_router 做声明式路由
 /// - 根据 themeProvider 切换亮/暗主题
+/// 竹笌 App 根组件，负责主题与全局状态挂载。
 class ZhuyApp extends ConsumerWidget {
   const ZhuyApp({super.key});
 

@@ -34,29 +34,74 @@ android {
         versionName = flutter.versionName
     }
 
+    // ── 签名配置 ───────────────────────────────────────────────
+    // 读取优先级：环境变量（CI） > key.properties（本地） > 不设置（回退 debug）
+    // CI 通过环境变量注入，避免把 keystore / 密码提交到仓库：
+    //   KEYSTORE_FILE        keystore 文件的绝对/相对路径
+    //   KEYSTORE_PASSWORD    keystore 密码
+    //   KEY_ALIAS            密钥别名
+    //   KEY_PASSWORD         密钥密码
     signingConfigs {
         create("release") {
-            val keyPropsFile = rootProject.file("key.properties")
-            if (keyPropsFile.exists()) {
-                val props = Properties()
-                keyPropsFile.inputStream().use { stream -> props.load(stream) }
-                storeFile = file(props.getProperty("storeFile"))
-                storePassword = props.getProperty("storePassword")
-                keyAlias = props.getProperty("keyAlias")
-                keyPassword = props.getProperty("keyPassword")
+            val envStoreFile = System.getenv("KEYSTORE_FILE")
+            val envStorePassword = System.getenv("KEYSTORE_PASSWORD")
+            val envKeyAlias = System.getenv("KEY_ALIAS")
+            val envKeyPassword = System.getenv("KEY_PASSWORD")
+
+            if (envStoreFile != null && envStorePassword != null &&
+                envKeyAlias != null && envKeyPassword != null) {
+                // CI / 命令行：从环境变量读取签名信息
+                storeFile = file(envStoreFile)
+                storePassword = envStorePassword
+                keyAlias = envKeyAlias
+                keyPassword = envKeyPassword
+            } else {
+                // 本地开发：从根目录 key.properties 读取（已被 .gitignore 排除）
+                val keyPropsFile = rootProject.file("key.properties")
+                if (keyPropsFile.exists()) {
+                    val props = Properties()
+                    keyPropsFile.inputStream().use { stream -> props.load(stream) }
+                    storeFile = file(props.getProperty("storeFile"))
+                    storePassword = props.getProperty("storePassword")
+                    keyAlias = props.getProperty("keyAlias")
+                    keyPassword = props.getProperty("keyPassword")
+                }
             }
         }
     }
 
+    // ── 构建变体（Build Types）─────────────────────────────────
     buildTypes {
         release {
-            // 使用正式的 release 签名（key.properties + upload-keystore.jks）
-            // 若 keystore 文件实际不存在，回退到 debug 签名，保证本地 `flutter build apk` 可用
-            val releaseKeystore = signingConfigs.findByName("release")?.storeFile
-            signingConfig = if (releaseKeystore != null && releaseKeystore.exists())
+            // 仅当 release 签名配置完整且 keystore 文件存在时使用正式签名；
+            // 否则回退到 debug 签名（保证本地 `flutter build apk` 不中断），并打印警告。
+            // 若需强制 release 签名（缺失即报错），构建时加 -PzhuyappStrictSigning=true。
+            val releaseStoreFile = signingConfigs.findByName("release")?.storeFile
+            val canReleaseSign = releaseStoreFile != null && releaseStoreFile.exists()
+            signingConfig = if (canReleaseSign) {
                 signingConfigs.getByName("release")
-            else
+            } else {
+                if (project.hasProperty("zhuyappStrictSigning")) {
+                    throw GradleException(
+                        "缺少 release 签名配置（key.properties 或 KEYSTORE_* 环境变量），" +
+                            "且已开启 zhuyappStrictSigning，终止构建。"
+                    )
+                }
+                logger.warn(
+                    "⚠️ 未找到 release 签名配置（key.properties 或 KEYSTORE_* 环境变量缺失），" +
+                        "将回退到 debug 签名。生成的 APK 不是 release 签名，无法上架应用商店。"
+                )
                 signingConfigs.getByName("debug")
+            }
+
+            // R8 压缩 / 混淆：默认关闭，避免误伤 Flutter 插件。
+            // 开启：`./gradlew assembleRelease -PzhuyappMinify=true`
+            isMinifyEnabled = project.findProperty("zhuyappMinify") == "true"
+            isShrinkResources = isMinifyEnabled
+        }
+
+        debug {
+            // debug 变体保持默认 debug 签名，便于开发期安装调试
             isMinifyEnabled = false
             isShrinkResources = false
         }

@@ -67,6 +67,9 @@ class ZhuaLive2DController {
     if (_modelLoaded || _disposed) return;
     try {
       await viewController.whenAttached;
+      // 等待原生 TextureView surface 完成第一次 onSurfaceChanged，
+      // 否则 C++ 层 view->width/height=0 会导致 loadModel 直接返回 false。
+      await Future.delayed(const Duration(milliseconds: 800));
       final ok = await viewController.loadModel(
         modelDir: _modelDir,
         modelFileName: _modelFile,

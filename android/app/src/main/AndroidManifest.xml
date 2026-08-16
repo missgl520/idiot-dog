@@ -30,6 +30,15 @@
             </intent-filter>
         </activity>
 
+        <!-- 关闭 Impeller，回退 Skia/GL 渲染器。
+             原因：flutter_live2d 使用 Cubism GLES2 原生视图，且插件用的是
+             VirtualDisplay 模式 PlatformView。在 Flutter 3.16+ 默认的 Impeller
+             渲染器下，这类 OpenGL 平台视图经常不绘制（空白 / 卡在加载层）。
+             关闭后回退到 Skia（GL），Live2D 才能正常渲染。 -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+
         <!-- Flutter 嵌入版本声明，固定为 2；Flutter 工具会读取此值生成插件注册代码 -->
         <meta-data
             android:name="flutterEmbedding"
