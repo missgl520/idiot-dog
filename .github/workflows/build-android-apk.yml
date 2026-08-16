@@ -1,0 +1,88 @@
+# =====================================================================
+# 竹笌 (zhuyapp) Android Release APK 自动构建
+# ---------------------------------------------------------------------
+# 触发方式：
+#   1. 在 GitHub 仓库 Actions 页面手动触发 (workflow_dispatch)
+#   2. 推送形如 v1.0.0 的 tag 时自动触发
+#
+# 所需 Secrets（仓库 Settings -> Secrets and variables -> Actions）：
+#   KEYSTORE_BASE64     本地 upload-keystore.jks 的 base64 内容
+#                      （生成：base64 -w0 android/app/upload-keystore.jks）
+#   KEYSTORE_PASSWORD   keystore 密码
+#   KEY_ALIAS           密钥别名（当前为 upload）
+#   KEY_PASSWORD        密钥密码
+#   提示：key.properties 与 *.jks 已被 .gitignore 排除，切勿提交明文。
+# =====================================================================
+name: Build Android APK (Release)
+
+on:
+  workflow_dispatch:
+    inputs:
+      split_per_abi:
+        description: "按 ABI 拆分 APK"
+        required: false
+        default: "false"
+        type: boolean
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build release APK
+    runs-on: ubuntu-latest
+
+    env:
+      # 解码后的 keystore 路径，供 Gradle 签名配置通过环境变量读取
+      KEYSTORE_FILE: ${{ github.workspace }}/android/app/upload-keystore.jks
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      SPLIT_PER_ABI: ${{ github.event.inputs.split_per_abi == 'true' && '1' || '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.8"
+          channel: stable
+          cache: true
+
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Collect artifacts to build/release
+        run: |
+          mkdir -p build/release
+          VERSION=$(grep -m1 '^version:' pubspec.yaml | sed -E 's/.*version:[[:space:]]*([0-9.]+)\+.*/\1/')
+          shopt -s nullglob
+          for src in build/app/outputs/flutter-apk/app*-release.apk; do
+            base=$(basename "$src")
+            suffix="${base#app}"; suffix="${suffix%-release.apk}"
+            cp -f "$src" "build/release/zhuyapp-v${VERSION}${suffix}-release.apk"
+          done
+          shopt -u nullglob
+          ls -1 build/release/*.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zhuyapp-release-apk
+          path: build/release/*.apk
+          retention-days: 30

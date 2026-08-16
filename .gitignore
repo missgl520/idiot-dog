@@ -50,3 +50,16 @@ app.*.map.json
 **/upload-keystore.jks
 **/*.jks
 **/*.keystore
+
+# Vendored flutter_live2d 的 Native/CMake 构建缓存（非源码，体积大且机器相关）
+vendor/**/.cxx/
+vendor/**/build/
+vendor/**/.dart_tool/
+
+# 调试产物（logcat 日志 / 截图 / 构建日志）
+logcat_*.txt
+shot_*.png
+*.log
+
+# WorkBuddy 本地数据（记忆/任务，非项目源码）
+.workbuddy/
