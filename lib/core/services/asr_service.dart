@@ -29,20 +29,36 @@ class AsrService {
   // ── 初始化 ──
   Future<void> init() async {
     if (_isInitialized) return;
-    _availableLocales = await _stt.locales();
-    _isInitialized = true;
+    try {
+      _availableLocales = await _stt.locales();
+      _isInitialized = true;
+    } catch (e) {
+      // 部分设备/模拟器没有语音识别引擎，locales() 会抛 PlatformException。
+      // 捕获后保持未初始化状态，调用方降级为文字输入即可，不阻断 App。
+      _isInitialized = false;
+    }
   }
 
   // ── 请求麦克风权限 ──
+  // 返回 true = 语音识别可用；false = 设备不支持（如模拟器、无 GMS 机型）。
+  // 注意：必须吞掉底层的 PlatformException(recognizerNotAvailable)，否则会在
+  // initState 阶段冒泡成 Unhandled Exception 导致红屏。
   Future<bool> requestPermission() async {
-    return await _stt.initialize(
-      onStatus: (status) {
-        _isListening = status == 'listening';
-      },
-      onError: (error) {
-        _isListening = false;
-      },
-    );
+    try {
+      final ok = await _stt.initialize(
+        onStatus: (status) {
+          _isListening = status == 'listening';
+        },
+        onError: (error) {
+          _isListening = false;
+        },
+      );
+      _isInitialized = ok;
+      return ok;
+    } catch (e) {
+      _isInitialized = false;
+      return false;
+    }
   }
 
   // ── 开始监听 ──

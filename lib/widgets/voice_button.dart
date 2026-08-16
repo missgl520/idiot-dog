@@ -49,8 +49,13 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
   }
 
   Future<void> _checkPermission() async {
-    final asr = ref.read(asrServiceProvider);
-    _permissionGranted = await asr.requestPermission();
+    try {
+      final asr = ref.read(asrServiceProvider);
+      _permissionGranted = await asr.requestPermission();
+    } catch (e) {
+      // 语音识别不可用时静默降级，绝不阻断页面初始化（避免红屏）
+      _permissionGranted = false;
+    }
   }
 
   Future<void> _startListening() async {
@@ -59,7 +64,9 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
       if (!_permissionGranted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请允许麦克风权限')),
+            const SnackBar(
+              content: Text('语音识别不可用（设备不支持或未授权），请改用文字输入'),
+            ),
           );
         }
         return;

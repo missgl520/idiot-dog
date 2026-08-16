@@ -9,6 +9,15 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  # 排除 vendored 的 flutter_live2d 自带的 example 工程与 CMake 构建缓存。
+  # 它们不是竹笌代码：example 缺 assets、.cxx 是编译产物，会让 `flutter analyze`
+  # 误报 error 导致 CI 失败。
+  exclude:
+    - vendor/**/example/**
+    - vendor/**/.cxx/**
+    - vendor/**/build/**
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`
